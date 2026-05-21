@@ -15,7 +15,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="App.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ContentManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DXRenderer.cpp">
@@ -24,7 +27,16 @@
     <ClCompile Include="DXShader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="IApp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="IRenderer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NetworkManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="VideoSource.cpp">
@@ -32,6 +44,12 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="App.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ContentManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="customtypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -41,7 +59,13 @@
     <ClInclude Include="DXShader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="IApp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="IRenderer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NetworkManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="utils.h">

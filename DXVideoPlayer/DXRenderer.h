@@ -18,7 +18,7 @@ class DXShader;
 
 class DXRenderer : public IRenderer
 {
-public:
+private:
     ID3D11Device* device = nullptr;
     ID3D11DeviceContext* context = nullptr;
     IDXGISwapChain* swapChain = nullptr;
@@ -36,6 +36,9 @@ public:
     void Resize(int width, int height);
     void BeginFrame();
     void EndFrame();
-	void DrawVideo(VideoSource& src, DXShader& shader, float alpha, bool blend, float winW, float winH);
+	void DrawVideo(VideoSource* src, DXShader* shader, float alpha, bool blend, float winW, float winH);
+    IDXGISwapChain* GetSwapChain();
+    ID3D11DeviceContext* GetContext();
+    ID3D11Device* GetDevice();
 };
 

@@ -18,6 +18,29 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="App.cpp" />
+    <ClCompile Include="ContentManager.cpp" />
+    <ClCompile Include="DXRenderer.cpp" />
+    <ClCompile Include="DXShader.cpp" />
+    <ClCompile Include="IApp.cpp" />
+    <ClCompile Include="IRenderer.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="NetworkManager.cpp" />
+    <ClCompile Include="VideoSource.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="App.h" />
+    <ClInclude Include="ContentManager.h" />
+    <ClInclude Include="customtypes.h" />
+    <ClInclude Include="DXRenderer.h" />
+    <ClInclude Include="DXShader.h" />
+    <ClInclude Include="IApp.h" />
+    <ClInclude Include="IRenderer.h" />
+    <ClInclude Include="NetworkManager.h" />
+    <ClInclude Include="utils.h" />
+    <ClInclude Include="VideoSource.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
@@ -103,9 +126,10 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\nlohmann;C:\ffmpeg-8.1-dev\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\ffmpeg-8.1-dev\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>avcodec.lib;avutil.lib;avformat.lib;swscale.lib;d3d11.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -125,21 +149,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="DXRenderer.cpp" />
-    <ClCompile Include="DXShader.cpp" />
-    <ClCompile Include="IRenderer.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="VideoSource.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="customtypes.h" />
-    <ClInclude Include="DXRenderer.h" />
-    <ClInclude Include="DXShader.h" />
-    <ClInclude Include="IRenderer.h" />
-    <ClInclude Include="utils.h" />
-    <ClInclude Include="VideoSource.h" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
