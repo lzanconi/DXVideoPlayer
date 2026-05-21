@@ -22,6 +22,7 @@ private:
 	bool isFullscreen = false;
 	bool spaceBarPressed = false;
 	bool fgActive = false;
+	int clientSocket = -1;	
 	IRenderer* renderer = nullptr;
 	DXShader* videoShader = nullptr;
 	AVBufferRef* hw_ctx;
@@ -47,6 +48,7 @@ public:
 	std::vector<float> GetPositions() override;
 	double GetLastPTS() override;
 	int64_t GetBGCaptureTimeNS() override;
+	void SetClientSocket(int socket) override;
 
 private:
 	static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);

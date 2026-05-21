@@ -54,24 +54,10 @@ App::App(int width, int height)
         }
     }
 
- //   bgVideo = new VideoSource();
-	//fgVideo = new VideoSource();
+    bgTrack = std::make_unique<VideoTrack>(state.sources[0]);
+    fgTrack = std::make_unique<VideoTrack>(state.sources[1]);
 
- //   //bgVideo.OpenFile("Videos/13.mp4", g_Renderer.device, g_Renderer.context);
- //   bgVideo->OpenFile("Videos/toyota_positional_test_v3_max_speed_accel_bg.mp4", renderer->GetDevice(), renderer->GetContext());
- //   fgVideo->OpenFile("Videos/1.mp4", renderer->GetDevice(), renderer->GetContext());
-    
-    state.sources[0]->looped = true;
-    state.sources[0]->Play(GetTimeStd());
-    //fgVideo->looped = true;
-
-    bgTrack = std::make_unique<VideoTrack>(true,0.0f, 0.0f);
-    fgTrack = std::make_unique<VideoTrack>(false,2.5f, 1.0f);
-
-    bgTrack->Initialize("Videos/toyota_positional_test_v3_max_speed_accel_bg.mp4", renderer->GetDevice(), renderer->GetContext());
-    fgTrack->Initialize("Videos/1.mp4", renderer->GetDevice(), renderer->GetContext());
-
-    bgTrack->SetBlending(false); // Background doesn't blend
+    bgTrack->SetBlending(false);
     fgTrack->SetBlending(true);
 
 	bgTrack->Play(GetTimeStd());
@@ -145,12 +131,12 @@ void App::Run()
 
 VideoSource* App::GetBackgroundVideo()
 {
-    return state.sources.empty() ? nullptr : state.sources[0];
+    return bgTrack ? bgTrack->GetSource() : nullptr;
 }
 
 std::vector<float> App::GetPositions()
 {
-    return state.sources[0]->positions;
+    return bgTrack->GetSource()->positions;
 }
 
 double App::GetLastPTS()
@@ -161,6 +147,11 @@ double App::GetLastPTS()
 int64_t App::GetBGCaptureTimeNS()
 {
 	return state.sources[0]->bg_capture_time_ns;
+}
+
+void App::SetClientSocket(int socket)
+{
+	clientSocket = socket;
 }
 
 LRESULT App::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
@@ -232,7 +223,7 @@ void App::ToggleFullscreen(HWND hwnd)
         SetWindowLong(hwnd, GWL_STYLE, style | WS_OVERLAPPEDWINDOW);
         SetWindowPlacement(hwnd, &windowPlacement);
         SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+        SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
 
         while (ShowCursor(TRUE) < 0);
     }

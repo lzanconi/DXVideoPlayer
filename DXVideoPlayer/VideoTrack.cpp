@@ -3,19 +3,18 @@
 #include "IRenderer.h"
 #include "utils.h"
 
-VideoTrack::VideoTrack(bool looped, float fadeIn, float fadeOut) 
-	: videoSource(std::make_unique<VideoSource>())
+VideoTrack::VideoTrack(VideoSource* videoSource)
 {
-	videoSource->looped = looped;
-	videoSource->fadeInDuration = fadeIn;
-	videoSource->fadeOutDuration = fadeOut;
+	this->videoSource = videoSource;
 }
 
-VideoTrack::~VideoTrack() = default;
-
-bool VideoTrack::Initialize(const std::string& path, ID3D11Device* device, ID3D11DeviceContext* context)
+VideoTrack::~VideoTrack()
 {
-    return videoSource->OpenFile(path, device, context);
+    if (videoSource)
+    {
+        delete videoSource;
+        videoSource = nullptr;
+	}
 }
 
 void VideoTrack::Play(double startTime)
@@ -48,5 +47,5 @@ void VideoTrack::Render(IRenderer* renderer, DXShader* shader, float winW, float
     videoSource->ComputeAlpha();
 
     // 3. Command the renderer to draw this specific track
-    renderer->DrawVideo(videoSource.get(), shader, shouldBlend, winW, winH);
+    renderer->DrawVideo(videoSource, shader, shouldBlend, winW, winH);
 }

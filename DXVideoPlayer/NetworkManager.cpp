@@ -5,11 +5,13 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
+#include <cmath>
+#include <algorithm>
 
 #pragma comment(lib, "ws2_32.lib")
 
 NetworkManager::NetworkManager(const std::string& serverIP, int serverPort, IApp* appInterface)
-    : serverIP(serverIP), serverPort(serverPort), appInterface(appInterface), running(false)
+    : serverIP(serverIP), serverPort(serverPort), appInterface(appInterface), clientRunning(false), serverRunning(false)
 {
 }
 
@@ -20,34 +22,88 @@ NetworkManager::~NetworkManager()
 
 void NetworkManager::Start()
 {
-    if (running)
-        return;
-    running = true;
-    workerThread = std::thread(&NetworkManager::Run, this);
-    std::cout << "NetworkManager: Background thread started." << std::endl;
+    if (!clientRunning)
+    {
+        clientRunning = true;
+        clientThread = std::thread(&NetworkManager::RunClient, this);
+        std::cout << "NetworkManager: Client background thread started." << std::endl;
+    }
+
+    if (!serverRunning)
+    {
+        serverRunning = true;
+        serverThread = std::thread(&NetworkManager::RunServer, this);
+        std::cout << "NetworkManager: Server listener thread started on port " << listenPort << "." << std::endl;
+    }
 }
 
 void NetworkManager::Stop()
 {
-    running = false;
-    if (workerThread.joinable())
+    // Step 1: Signal loop conditions to drop out instantly
+    clientRunning = false;
+    serverRunning = false;
+
+    // Step 2: Forcefully kick the outbound client socket out of blocking connect/send calls
     {
-        workerThread.join();
+        std::lock_guard<std::mutex> lock(clientSocketMutex);
+        if (activeClientSocket != (SOCKET)-1)
+        {
+            closesocket(activeClientSocket);
+            activeClientSocket = (SOCKET)-1;
+        }
     }
+
+    // Step 3: Forcefully close the listening server socket.
+    // This instantly breaks accept() out of its blocking state with an error.
+    {
+        std::lock_guard<std::mutex> lock(serverSocketMutex);
+        if (listenSocket != (SOCKET)-1)
+        {
+            closesocket(listenSocket);
+            listenSocket = (SOCKET)-1;
+        }
+    }
+
+    // Step 4: Wait for threads to complete cleanly without deadlocks
+    if (clientThread.joinable())
+    {
+        clientThread.join();
+    }
+
+    if (serverThread.joinable())
+    {
+        serverThread.join();
+    }
+
+    std::cout << "NetworkManager: All background threads stopped cleanly." << std::endl;
 }
 
-void NetworkManager::Run()
+//##########################################################################################
+//##    CLIENT IMPLEMENTATION
+//##########################################################################################
+
+void NetworkManager::RunClient()
 {
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
         return;
-    while (running)
+
+    while (clientRunning)
     {
         SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (clientSocket == (SOCKET)-1) // INVALID_SOCKET
+        if (clientSocket == (SOCKET)-1)
         {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
             continue;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(clientSocketMutex);
+            if (!clientRunning) {
+                closesocket(clientSocket);
+                break;
+            }
+            activeClientSocket = clientSocket;
         }
 
         sockaddr_in serverAddr;
@@ -55,59 +111,58 @@ void NetworkManager::Run()
         serverAddr.sin_port = htons(serverPort);
         inet_pton(AF_INET, serverIP.c_str(), &serverAddr.sin_addr);
 
-        // Attempt connection
-        std::cout << "[Network] Attempting to connect to server at " << serverIP << ":" << serverPort << "..." << std::endl;
-        if (connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == -1) // SOCKET_ERROR
+        std::cout << "[Network Client] Attempting to connect to server at " << serverIP << ":" << serverPort << "..." << std::endl;
+        if (connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
         {
+            std::lock_guard<std::mutex> lock(clientSocketMutex);
             closesocket(clientSocket);
-            std::this_thread::sleep_for(std::chrono::seconds(2)); // Retry interval
+            activeClientSocket = (SOCKET)-1;
+
+            for (int i = 0; i < 20 && clientRunning; ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
             continue;
         }
 
-        std::cout << "NetworkManager: Connected to Position Server." << std::endl;
+        std::cout << "NetworkManager: Client connected to Position Server." << std::endl;
         HandlePositionSend(clientSocket);
-        closesocket(clientSocket);
+
+        {
+            std::lock_guard<std::mutex> lock(clientSocketMutex);
+            closesocket(clientSocket);
+            activeClientSocket = (SOCKET)-1;
+        }
     }
 
-	WSACleanup();
-}   
+    WSACleanup();
+}
 
 void NetworkManager::HandlePositionSend(SOCKET socket)
 {
-    // 25 FPS = 1 message every 40ms
-    /*const std::chrono::milliseconds frameDuration(1000 / targetFramerate);
-    auto period_duration = frameDuration;*/
-
     auto period_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::duration<double>(1.0 / positions_framerate)
     );
 
     auto next_frame = std::chrono::steady_clock::now() + period_duration;
 
-    while (running)
+    while (clientRunning)
     {
         auto now = std::chrono::steady_clock::now();
         auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(next_frame - now);
 
-        // Precise sleep to reduce CPU usage while maintaining accuracy
         if (time_left.count() > 2)
             std::this_thread::sleep_for(time_left - std::chrono::milliseconds(2));
 
-        while (std::chrono::steady_clock::now() < next_frame)
-        {
-            /* spin until it's time to send */
-        }
+        while (std::chrono::steady_clock::now() < next_frame) {}
 
         auto trigger_time = std::chrono::steady_clock::now();
         int64_t trigger_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(trigger_time.time_since_epoch()).count();
 
-        // Gather data from App via IApp interface
         std::vector<float> positions = appInterface->GetPositions();
         double last_video_time = appInterface->GetLastPTS();
         int64_t capture_time_ns = appInterface->GetBGCaptureTimeNS();
         double calc_time = 0.0;
 
-        // Calculate interpolated playback time for precise position mapping
         if (capture_time_ns > 0)
         {
             int64_t elapsed_ns = trigger_ns - capture_time_ns;
@@ -123,13 +178,11 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
             calc_time = last_video_time;
         }
 
-        // Apply delay offset
         double delay_s = positions_delay_ms / 1000.0;
         calc_time -= delay_s;
         if (calc_time < 0.0)
             calc_time = 0.0;
 
-        // Map time to position CSV index
         int count = (int)positions.size();
         double exact_index = calc_time * positions_framerate;
         int base_idx = (int)std::floor(exact_index);
@@ -144,22 +197,150 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
         float val0 = positions[idx0];
         float val1 = positions[idx1];
 
-        // Linear interpolation between two CSV values
         float calculated_csv_pos = (float)(val0 * (1.0 - frac) + val1 * frac);
 
-        // Prepare JSON payload
         char buffer[128];
         int len = snprintf(buffer, sizeof(buffer), "{\"positions\":[%.4f]}", calculated_csv_pos);
 
         if (len > 0) {
-            // Append null terminator as expected by the Python emulator
-            if (send(socket, buffer, len + 1, 0) == -1) // SOCKET_ERROR
+            if (send(socket, buffer, len + 1, 0) == -1)
             {
-                std::cout << "[Network] Connection lost." << std::endl;
+                std::cout << "[Network Client] Connection lost." << std::endl;
                 break;
             }
         }
 
         next_frame += period_duration;
     }
+}
+
+//##########################################################################################
+//##    SERVER IMPLEMENTATION
+//##########################################################################################
+
+void NetworkManager::RunServer()
+{
+    WSADATA wsaData;
+    WSAStartup(MAKEWORD(2, 2), &wsaData);
+
+    while (serverRunning)
+    {
+        SOCKET localListenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (localListenSocket == (SOCKET)-1)
+        {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            continue;
+        }
+
+        char reuse = 1;
+        setsockopt(localListenSocket, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+
+        sockaddr_in serverAddr;
+        serverAddr.sin_family = AF_INET;
+        serverAddr.sin_port = htons(listenPort);
+        serverAddr.sin_addr.s_addr = INADDR_ANY;
+
+        if (bind(localListenSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
+        {
+            std::cerr << "[Network Server] Bind failed on port " << listenPort << std::endl;
+            closesocket(localListenSocket);
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            continue;
+        }
+
+        if (listen(localListenSocket, SOMAXCONN) == -1)
+        {
+            closesocket(localListenSocket);
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            continue;
+        }
+
+        std::cout << "[Network Server] Server listening on port " << listenPort << "..." << std::endl;
+
+        {
+            std::lock_guard<std::mutex> lock(serverSocketMutex);
+            if (!serverRunning) {
+                closesocket(localListenSocket);
+                break;
+            }
+            listenSocket = localListenSocket;
+        }
+
+        // Apply a socket receive timeout so accept() checks serverRunning every 500ms
+        DWORD timeout = 500;
+        setsockopt(localListenSocket, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
+
+        while (serverRunning)
+        {
+            sockaddr_in clientAddr;
+            int clientAddrLen = sizeof(clientAddr);
+            SOCKET inboundClient = accept(localListenSocket, (sockaddr*)&clientAddr, &clientAddrLen);
+
+            if (inboundClient == (SOCKET)-1)
+            {
+                if (!serverRunning) break;
+                continue;
+            }
+
+            // Extract and cleanly format the incoming client's IP address
+            char clientIPStr[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &clientAddr.sin_addr, clientIPStr, INET_ADDRSTRLEN);
+
+            // --- NEW: Print connection message immediately ---
+            std::cout << "[Network Server] [+] New client connected from: " << clientIPStr << std::endl;
+
+            appInterface->SetClientSocket(inboundClient);
+
+            // Spin off a separate worker thread for this client connection.
+            // This prevents a single client from blocking the main server accept loop.
+            std::thread connectionThread(&NetworkManager::HandleIncomingConnection, this, inboundClient);
+            connectionThread.detach();
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(serverSocketMutex);
+            closesocket(localListenSocket);
+            listenSocket = (SOCKET)-1;
+        }
+    }
+
+    WSACleanup();
+}
+
+void NetworkManager::HandleIncomingConnection(SOCKET clientSocket)
+{
+    char recvBuffer[1024];
+
+    // Set data transfer timeout so the thread periodically checks serverRunning
+    DWORD timeout = 1000;
+    setsockopt(clientSocket, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
+
+    while (serverRunning)
+    {
+        int bytesReceived = recv(clientSocket, recvBuffer, sizeof(recvBuffer) - 1, 0);
+        if (bytesReceived > 0)
+        {
+            recvBuffer[bytesReceived] = '\0';
+            //std::cout << "[Network Server] Received message: " << recvBuffer << std::endl;
+            //appInterface->HandleCommand(std::string(recvBuffer));
+        }
+        else if (bytesReceived == 0)
+        {
+            std::cout << "[Network Server] [-] Client disconnected gracefully." << std::endl;
+            break;
+        }
+        else
+        {
+            int err = WSAGetLastError();
+            if (err == WSAETIMEDOUT)
+            {
+                continue; // Timeout passed, verify loop state safely
+            }
+            std::cout << "[Network Server] [-] Client connection lost abruptly." << std::endl;
+            break;
+        }
+    }
+
+    // Always clean up the individual client socket handle when exiting this connection's thread lifecycle
+    closesocket(clientSocket);
 }
