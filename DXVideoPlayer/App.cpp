@@ -22,8 +22,6 @@ App::App(int width, int height)
 		MessageBoxA(nullptr, "No .mp4 files found in the Videos folder.", "Error", MB_ICONERROR);
     }
 
-
-
     wndClass.lpfnWndProc = WndProc; 
     wndClass.lpszClassName = L"VP"; 
     wndClass.hInstance = GetModuleHandle(NULL);
@@ -67,6 +65,17 @@ App::App(int width, int height)
     state.sources[0]->Play(GetTimeStd());
     //fgVideo->looped = true;
 
+    bgTrack = std::make_unique<VideoTrack>(true,0.0f, 0.0f);
+    fgTrack = std::make_unique<VideoTrack>(false,2.5f, 1.0f);
+
+    bgTrack->Initialize("Videos/toyota_positional_test_v3_max_speed_accel_bg.mp4", renderer->GetDevice(), renderer->GetContext());
+    fgTrack->Initialize("Videos/1.mp4", renderer->GetDevice(), renderer->GetContext());
+
+    bgTrack->SetBlending(false); // Background doesn't blend
+    fgTrack->SetBlending(true);
+
+	bgTrack->Play(GetTimeStd());
+
 	ShowWindow(window, SW_SHOW);
 	ToggleFullscreen(window);
 
@@ -106,21 +115,8 @@ void App::Run()
         {
 			spaceBarPressed = false;
             fgActive = true;
-			state.sources[1]->Rewind();
-			state.sources[1]->Play(GetTimeStd());
-        }
-
-		state.sources[0]->GetNextFrame(renderer->GetContext());
-        if (fgActive)
-        {
-            if (!state.sources[1]->GetNextFrame(renderer->GetContext()))
-                fgActive = false;
-		}
-
-        state.sources[0]->ComputeAlpha();
-        if (fgActive)
-        {
-            state.sources[1]->ComputeAlpha();
+            fgTrack->Rewind();
+            fgTrack->Play(GetTimeStd());
         }
 
         RECT rc; 
@@ -129,13 +125,20 @@ void App::Run()
         float h = (float)(rc.bottom - rc.top);
 
 		renderer->BeginFrame();
-		renderer->DrawVideo(state.sources[0], videoShader, false, w, h);
+		bgTrack->Render(renderer, videoShader, w, h);
 
         if (fgActive)
         {
-            renderer->DrawVideo(state.sources[1], videoShader, true, w, h);
+            // If the foreground track finishes playback naturally, flag active rendering loop to false
+            if (!fgTrack->IsActive())
+            {
+                fgActive = false;
+            }
+            else
+            {
+                fgTrack->Render(renderer, videoShader, w, h);
+            }
         }
-
         renderer->EndFrame();
 	}
 }

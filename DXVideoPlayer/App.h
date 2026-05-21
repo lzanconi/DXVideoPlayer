@@ -2,6 +2,7 @@
 #include <windows.h>
 #include "customtypes.h"
 #include "IApp.h"
+#include "VideoTrack.h"
 
 class IRenderer;
 class VideoSource;
@@ -32,6 +33,9 @@ private:
 	// Stores window position before going fullscreen
 	RECT windowRect = { 0 };
 	WINDOWPLACEMENT windowPlacement = { sizeof(WINDOWPLACEMENT) };
+
+	std::unique_ptr<VideoTrack> bgTrack;
+	std::unique_ptr<VideoTrack> fgTrack;
 
 public:
 	App(int width, int height);

@@ -28,6 +28,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="NetworkManager.cpp" />
     <ClCompile Include="VideoSource.cpp" />
+    <ClCompile Include="VideoTrack.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h" />
@@ -40,6 +41,7 @@
     <ClInclude Include="NetworkManager.h" />
     <ClInclude Include="utils.h" />
     <ClInclude Include="VideoSource.h" />
+    <ClInclude Include="VideoTrack.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
