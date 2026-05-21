@@ -210,6 +210,27 @@ void VideoSource::Rewind()
     internalPTS = 0.0;
 }
 
+void VideoSource::ComputeAlpha()
+{
+    // Default to fully opaque
+    alpha = 1.0f;
+
+    // 1. Handle Fade-In
+    if (internalPTS < fadeInDuration && fadeInDuration > 0.0f)
+    {
+        alpha = (float)internalPTS / fadeInDuration;
+    }
+    // 2. Handle Fade-Out (Only if video isn't set to loop infinitely)
+    else if (!looped && (duration - internalPTS) < fadeOutDuration && fadeOutDuration > 0.0f)
+    {
+        alpha = (float)(duration - internalPTS) / fadeOutDuration;
+    }
+
+    // Clamp values to valid alpha range [0.0, 1.0]
+    if (alpha < 0.0f) alpha = 0.0f;
+    if (alpha > 1.0f) alpha = 1.0f;
+}
+
 /*
 Responsible for allocating the DirectX 11 textures and Shader Resource Views (SRVs) required to display
 the video frames decoded by FFmpeg.

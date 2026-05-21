@@ -117,23 +117,23 @@ void App::Run()
                 fgActive = false;
 		}
 
+        state.sources[0]->ComputeAlpha();
+        if (fgActive)
+        {
+            state.sources[1]->ComputeAlpha();
+        }
+
         RECT rc; 
         GetClientRect(window, &rc);
         float w = (float)(rc.right - rc.left);
         float h = (float)(rc.bottom - rc.top);
 
 		renderer->BeginFrame();
-		renderer->DrawVideo(state.sources[0], videoShader, 1.0f, false, w, h);
+		renderer->DrawVideo(state.sources[0], videoShader, false, w, h);
 
         if (fgActive)
         {
-            float fade = 1.0f;
-            if (state.sources[1]->internalPTS < state.sources[1]->fadeInDuration)
-                fade = (float)state.sources[1]->internalPTS / state.sources[1]->fadeInDuration;
-            else if (state.sources[1]->duration - state.sources[1]->internalPTS < state.sources[1]->fadeOutDuration)
-                fade = (float)(state.sources[1]->duration - state.sources[1]->internalPTS) / state.sources[1]->fadeOutDuration;
-
-            renderer->DrawVideo(state.sources[1], videoShader, max(0.0f, fade), true, w, h);
+            renderer->DrawVideo(state.sources[1], videoShader, true, w, h);
         }
 
         renderer->EndFrame();

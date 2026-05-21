@@ -33,6 +33,7 @@ public:
     bool looped = false;
     float fadeInDuration = 2.0f;
     float fadeOutDuration = 2.0f;
+	float alpha = 1.0f;
     std::atomic<int64_t> bg_capture_time_ns;
     std::vector<float> positions;
 
@@ -44,6 +45,7 @@ public:
     bool GetNextFrame(ID3D11DeviceContext* context);
     void Play(double startTime);
 	void Rewind();
+	void ComputeAlpha();
 
 private:
     bool CreateResources(ID3D11Device* device);

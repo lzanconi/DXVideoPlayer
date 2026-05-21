@@ -100,7 +100,7 @@ void DXRenderer::EndFrame()
     swapChain->Present(1, 0);
 }
 
-void DXRenderer::DrawVideo(VideoSource* src, DXShader* shader, float alpha, bool blend, float winW, float winH)
+void DXRenderer::DrawVideo(VideoSource* src, DXShader* shader, bool blend, float winW, float winH)
 {
     // Setup aspect ratio viewport
     float ar = (float)src->width / (float)src->height;
@@ -113,7 +113,7 @@ void DXRenderer::DrawVideo(VideoSource* src, DXShader* shader, float alpha, bool
     // Update Alpha
     D3D11_MAPPED_SUBRESOURCE ms;
     context->Map(alphaCB, 0, D3D11_MAP_WRITE_DISCARD, 0, &ms);
-    ((float*)ms.pData)[0] = alpha;
+    ((float*)ms.pData)[0] = src->alpha;
     context->Unmap(alphaCB, 0);
 
     context->IASetInputLayout(shader->layout);
