@@ -252,50 +252,57 @@ let's say duration = 10 seconds, internalPTS = 8.5 seconds and fadeInDuration = 
 
 This method stops when the video ends (GetNextFrame returns false)
 */
-bool VideoSource::ComputeFadeOut()
+bool VideoSource::ComputeNaturalFadeOut()
 {
-    // 1. Handle Network-Driven Forced Fade Out
-    if (isForcedFadingOut)
-    {
-        double elapsed = GetTimeStd() - forcedFadeOutStartTime;
-        if (fadeOutDuration > 0.0f)
-        {
-            // Calculate progress smoothly descending from the captured starting alpha
-            float progress = (float)elapsed / fadeOutDuration;
-            alpha = forcedFadeOutStartAlpha * (1.0f - progress);
+    // Don't start natural fade-out if we're still in the initial fade-in phase
+    if (internalPTS < fadeInDuration && fadeInDuration > 0.0f)
+        return false;
 
+    if (fadeOutDuration > 0.0f)
+    {
+        // If the playback playhead enters the specified tail window of the file
+        if ((duration - internalPTS) < fadeOutDuration)
+        {
+            isFadingOut = true;
+            alpha = (float)(duration - internalPTS) / fadeOutDuration;
+
+            // Optional safety check if natural fade hits absolute zero
             if (alpha <= 0.0f)
             {
                 alpha = 0.0f;
-                isFadingOut = false;
-                isForcedFadingOut = false;
                 return true;
             }
         }
-        else
+    }
+
+    return false;
+}
+
+bool VideoSource::ComputeForcedFadeOut()
+{
+    if (!isForcedFadingOut) 
+        return false;
+
+    double elapsed = GetTimeStd() - forcedFadeOutStartTime;
+    if (fadeOutDuration > 0.0f)
+    {
+        float progress = (float)elapsed / fadeOutDuration;
+        alpha = forcedFadeOutStartAlpha * (1.0f - progress);
+
+        if (alpha <= 0.0f)
         {
             alpha = 0.0f;
             isFadingOut = false;
             isForcedFadingOut = false;
-            return true;
+            return true; // Signal that the forced fade loop is entirely finished
         }
-        return false;
     }
-
-    // 2. Handle Natural Video End Timeline Fade Out (Original Logic)
-    // Don't start fade-out if we're still in fade-in phase
-    if (internalPTS < fadeInDuration && fadeInDuration > 0.0f)
-        return false;
-
-	//Ensures that fade-out logic only runs if the fade-out duration is set to a positive value
-    if (fadeOutDuration > 0.0f)
+    else
     {
-        if ((duration - internalPTS) < fadeOutDuration)
-        {
-            //std::cout << "FADE OUT " << isFadingOut << std::endl;
-            isFadingOut = true;
-            alpha = (float)(duration - internalPTS) / fadeOutDuration;
-        }
+        alpha = 0.0f;
+        isFadingOut = false;
+        isForcedFadingOut = false;
+        return true;
     }
 
     return false;

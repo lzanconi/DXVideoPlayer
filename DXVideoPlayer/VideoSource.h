@@ -53,7 +53,9 @@ public:
 	void StartFadeIn(float fadeInTime = -1.0f);
 	void StartForcedFadeOut(float fadeOutTime = -1.0f);
     void ComputeFadeIn();
-	bool ComputeFadeOut();
+
+    bool ComputeNaturalFadeOut();
+	bool ComputeForcedFadeOut();
     
 
 private:

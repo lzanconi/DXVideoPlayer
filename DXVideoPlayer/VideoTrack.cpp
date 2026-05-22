@@ -93,17 +93,29 @@ void VideoTrack::Render(IRenderer* renderer, DXShader* shader, float winW, float
     // 2. Compute alpha state at full engine loop cadence (60 FPS)
 	videoSource->ComputeFadeIn();
 
-    // If the forced fade out finishes, terminate the track immediately
-    if (videoSource->ComputeFadeOut())
+    bool fadeOutFinished = false;
+    if (videoSource->isForcedFadingOut)
+    {
+        // Execute dedicated forced-stop tracking tracking calculations
+        fadeOutFinished = videoSource->ComputeForcedFadeOut();
+    }
+    else
+    {
+        // Fall back to standard, linear asset tracking timeline rules
+        fadeOutFinished = videoSource->ComputeNaturalFadeOut();
+    }
+
+
+    if (fadeOutFinished)
     {
         isActive = false;
         state = VideoTrackState::Stopped;
         if (prevState != state)
         {
-            std::cout << "Track state changed (Forced Stop): " << VideoTrackStateToStr(prevState) << " -> " << VideoTrackStateToStr(state) << std::endl;
+            std::cout << "Track state changed (Fade Complete): " << VideoTrackStateToStr(prevState) << " -> " << VideoTrackStateToStr(state) << std::endl;
             prevState = state;
         }
-        return; 
+        return; // Exit right away to guarantee zero frame ghosting artifacts
     }
 
     if (videoSource->isFadingIn)
