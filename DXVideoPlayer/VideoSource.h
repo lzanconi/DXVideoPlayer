@@ -31,6 +31,8 @@ public:
     double internalPTS = 0.0;
     bool isInitialized = false;
     bool looped = false;
+	bool isFadingIn = false;
+	bool isFadingOut = false;   
     float fadeInDuration = 2.0f;
     float fadeOutDuration = 2.0f;
 	float alpha = 1.0f;
@@ -45,7 +47,11 @@ public:
     bool GetNextFrame(ID3D11DeviceContext* context);
     void Play(double startTime);
 	void Rewind();
-	void ComputeAlpha();
+	void StartFadeIn(float fadeInTime = -1.0f);
+    void ComputeFadeIn();
+	void StartFadeOut(float fadeOutTime = -1.0f);
+	void ComputeFadeOut();
+    
 
 private:
     bool CreateResources(ID3D11Device* device);

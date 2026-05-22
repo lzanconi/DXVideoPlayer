@@ -28,6 +28,11 @@ void VideoTrack::Rewind()
     videoSource->Rewind();
 }
 
+void VideoTrack::StartFadeIn(float fadeInTime)
+{
+    videoSource->StartFadeIn(fadeInTime);
+}
+
 void VideoTrack::Render(IRenderer* renderer, DXShader* shader, float winW, float winH)
 {
     // If the track isn't active, don't waste any execution time
@@ -44,7 +49,8 @@ void VideoTrack::Render(IRenderer* renderer, DXShader* shader, float winW, float
     }
 
     // 2. Compute alpha state at full engine loop cadence (60 FPS)
-    videoSource->ComputeAlpha();
+	videoSource->ComputeFadeIn();
+	videoSource->ComputeFadeOut();
 
     // 3. Command the renderer to draw this specific track
     renderer->DrawVideo(videoSource, shader, shouldBlend, winW, winH);

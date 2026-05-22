@@ -103,6 +103,7 @@ void App::Run()
             fgActive = true;
             fgTrack->Rewind();
             fgTrack->Play(GetTimeStd());
+			fgTrack->StartFadeIn();
         }
 
         RECT rc; 
