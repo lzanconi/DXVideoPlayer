@@ -45,6 +45,18 @@ void VideoTrack::StartFadeIn(float fadeInTime)
     videoSource->StartFadeIn(fadeInTime);
 }
 
+void VideoTrack::StartForcedFadeOut()
+{
+    if (state == VideoTrackState::FadingOut)
+        return;
+
+    if (!isActive || !videoSource) 
+        return;
+
+    state = VideoTrackState::FadingOut;
+    videoSource->StartForcedFadeOut();
+}
+
 void VideoTrack::Render(IRenderer* renderer, DXShader* shader, float winW, float winH)
 {
     // If the track isn't active, don't waste any execution time
@@ -80,14 +92,26 @@ void VideoTrack::Render(IRenderer* renderer, DXShader* shader, float winW, float
 
     // 2. Compute alpha state at full engine loop cadence (60 FPS)
 	videoSource->ComputeFadeIn();
-	videoSource->ComputeFadeOut();
+
+    // If the forced fade out finishes, terminate the track immediately
+    if (videoSource->ComputeFadeOut())
+    {
+        isActive = false;
+        state = VideoTrackState::Stopped;
+        if (prevState != state)
+        {
+            std::cout << "Track state changed (Forced Stop): " << VideoTrackStateToStr(prevState) << " -> " << VideoTrackStateToStr(state) << std::endl;
+            prevState = state;
+        }
+        return; 
+    }
 
     if (videoSource->isFadingIn)
         state = VideoTrackState::FadingIn;
     else if (videoSource->isFadingOut)
-        state = VideoTrackState::FadingOut;
+        state = VideoTrackState::FadingOut; // This keeps it anchored during forced fades!
     else if (state == VideoTrackState::FadingIn || state == VideoTrackState::FadingOut)
-        state = VideoTrackState::Playing; // Transition to playing after fades complete
+        state = VideoTrackState::Playing;
     
     if (prevState != state)
     {

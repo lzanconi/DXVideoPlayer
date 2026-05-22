@@ -242,9 +242,18 @@ void App::ProcessDeferredCommands()
             {
                 std::cout << ">>> [Main Thread] Processing deferred 'stop' action." << std::endl;
                 //StopForegroundActivities();
+                
                 break;
             }
         }
+    }
+}
+
+void App::StopForegroundActivities()
+{
+    if (fgActive && fgTrack)
+    {
+        fgTrack->StartForcedFadeOut();
     }
 }
 
@@ -285,6 +294,9 @@ LRESULT App::HandleMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     
     if (msg == WM_KEYDOWN && wp == 'F')
         ToggleFullscreen(hwnd);
+
+    if (msg == WM_KEYDOWN && wp == 'T')
+		StopForegroundActivities();
 
     if (msg == WM_SIZE && renderer->GetSwapChain()) 
         renderer->Resize(0, 0);

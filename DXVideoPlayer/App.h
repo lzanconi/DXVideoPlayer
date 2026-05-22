@@ -24,6 +24,7 @@ public:
 private:
 	bool isFullscreen = false;
 	bool spaceBarPressed = false;
+	bool tKeyPressed = false;
 	bool fgActive = false;
 	int clientSocket = -1;	
 	IRenderer* renderer = nullptr;
@@ -64,6 +65,7 @@ public:
 
 private:
 	void ProcessDeferredCommands();
+	void StopForegroundActivities();
 	static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 	LRESULT HandleMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 	void ToggleFullscreen(HWND hwnd);

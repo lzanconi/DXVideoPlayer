@@ -187,6 +187,7 @@ void VideoSource::Play(double startTime)
     this->startTime = startTime;
 	internalPTS = 0.0;
     lastPTS = -1.0; // Reset lastPTS to allow immediate frame decoding
+    isForcedFadingOut = false;
 }
 
 void VideoSource::Rewind()
@@ -198,6 +199,7 @@ void VideoSource::Rewind()
     av_seek_frame(fmtCtx, streamIdx, 0, AVSEEK_FLAG_BACKWARD);
     lastPTS = -1.0;
     internalPTS = 0.0;
+    isForcedFadingOut = false;
 }
 
 void VideoSource::StartFadeIn(float fadeInTime)
@@ -206,6 +208,17 @@ void VideoSource::StartFadeIn(float fadeInTime)
 		fadeInDuration = fadeInTime;    
 
 	isFadingIn = true;
+}
+
+void VideoSource::StartForcedFadeOut(float fadeOutTime)
+{
+    if (isForcedFadingOut) 
+        return; // Already fading out
+
+    isForcedFadingOut = true;
+    isFadingOut = true;
+    forcedFadeOutStartTime = GetTimeStd();
+    forcedFadeOutStartAlpha = alpha; // Capture current transparency state
 }
 
 void VideoSource::ComputeFadeIn()
@@ -239,11 +252,40 @@ let's say duration = 10 seconds, internalPTS = 8.5 seconds and fadeInDuration = 
 
 This method stops when the video ends (GetNextFrame returns false)
 */
-void VideoSource::ComputeFadeOut()
+bool VideoSource::ComputeFadeOut()
 {
+    // 1. Handle Network-Driven Forced Fade Out
+    if (isForcedFadingOut)
+    {
+        double elapsed = GetTimeStd() - forcedFadeOutStartTime;
+        if (fadeOutDuration > 0.0f)
+        {
+            // Calculate progress smoothly descending from the captured starting alpha
+            float progress = (float)elapsed / fadeOutDuration;
+            alpha = forcedFadeOutStartAlpha * (1.0f - progress);
+
+            if (alpha <= 0.0f)
+            {
+                alpha = 0.0f;
+                isFadingOut = false;
+                isForcedFadingOut = false;
+                return true;
+            }
+        }
+        else
+        {
+            alpha = 0.0f;
+            isFadingOut = false;
+            isForcedFadingOut = false;
+            return true;
+        }
+        return false;
+    }
+
+    // 2. Handle Natural Video End Timeline Fade Out (Original Logic)
     // Don't start fade-out if we're still in fade-in phase
     if (internalPTS < fadeInDuration && fadeInDuration > 0.0f)
-        return;
+        return false;
 
 	//Ensures that fade-out logic only runs if the fade-out duration is set to a positive value
     if (fadeOutDuration > 0.0f)
@@ -255,19 +297,8 @@ void VideoSource::ComputeFadeOut()
             alpha = (float)(duration - internalPTS) / fadeOutDuration;
         }
     }
-    
 
-    // Don't start fade-out if we're still in fade-in phase
-    /*if (internalPTS < fadeInDuration && fadeInDuration > 0.0f)
-		return; 
-
-    if ((duration - internalPTS) < fadeOutDuration && fadeOutDuration > 0.0f)
-    {
-        alpha = (float)(duration - internalPTS) / fadeOutDuration;
-    }
-
-    if (alpha < 0.0f) 
-        alpha = 0.0f;*/
+    return false;
 }
 
 

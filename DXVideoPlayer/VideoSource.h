@@ -33,6 +33,9 @@ public:
     bool looped = false;
 	bool isFadingIn = false;
 	bool isFadingOut = false;   
+    bool isForcedFadingOut = false;     
+    double forcedFadeOutStartTime = 0.0; 
+    float forcedFadeOutStartAlpha = 1.0f;
     float fadeInDuration = 2.0f;
     float fadeOutDuration = 2.0f;
 	float alpha = 1.0f;
@@ -48,8 +51,9 @@ public:
     void Play(double startTime);
 	void Rewind();
 	void StartFadeIn(float fadeInTime = -1.0f);
+	void StartForcedFadeOut(float fadeOutTime = -1.0f);
     void ComputeFadeIn();
-	void ComputeFadeOut();
+	bool ComputeFadeOut();
     
 
 private:
