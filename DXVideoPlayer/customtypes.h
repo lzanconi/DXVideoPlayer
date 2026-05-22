@@ -36,3 +36,11 @@ struct VideoContent
     //Optional position data loaded from a corresponding .csv file
     std::vector<float> positions;
 };
+
+enum class VideoTrackState
+{
+    Stopped,
+	FadingIn,
+    Playing,
+    FadingOut   
+};  

@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <memory>
+#include "customtypes.h"
 
 class VideoSource;
 class DXShader;
@@ -14,6 +15,10 @@ private:
     VideoSource* videoSource;
     bool isActive = false;
     bool shouldBlend = false;
+
+public:
+	VideoTrackState state = VideoTrackState::Stopped;
+	VideoTrackState prevState = VideoTrackState::Stopped;
 
 public:
     VideoTrack(VideoSource* videoSource);

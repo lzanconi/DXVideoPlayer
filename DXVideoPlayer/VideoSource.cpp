@@ -165,28 +165,17 @@ bool VideoSource::GetNextFrame(ID3D11DeviceContext* context)
                 }
                 else
                 {
+                    if (isFadingOut)
+                    {
+                        isFadingOut = false;
+						alpha = 0.0f; // Ensure alpha is fully transparent at the end of the video
+                    }
+                    std::cout << "Video ENDED : " << alpha << " isFadingOut: " << isFadingOut << std::endl;
                     return false;
                 }
             }
         }
     }
-
-    //if (av_read_frame(fmtCtx, raw_packet) >= 0) {
-    //    if (raw_packet->stream_index == streamIdx && avcodec_send_packet(decCtx, raw_packet) == 0) {
-    //        if (avcodec_receive_frame(decCtx, frame) == 0) {
-    //            pts = frame->best_effort_timestamp * av_q2d(fmtCtx->streams[streamIdx]->time_base);
-    //            CopyFrameToDX11Texture(context, frame);
-    //            frameDecoded = true;
-    //        }
-    //    }
-    //    av_packet_unref(raw_packet);
-    //}
-    //else {
-    //    // End of stream logic: Loop
-    //    avcodec_flush_buffers(decCtx);
-    //    av_seek_frame(fmtCtx, streamIdx, 0, AVSEEK_FLAG_BACKWARD);
-    //}
-
     av_frame_free(&frame);
     av_packet_free(&raw_packet);
 
@@ -240,18 +229,36 @@ void VideoSource::ComputeFadeIn()
         alpha = 1.0f;
 }
 
-void VideoSource::StartFadeOut(float fadeOutTime)
-{
-    if (fadeOutTime != -1.0f)
-        fadeOutDuration = fadeOutTime;
-    isFadingOut = true;
-	std::cout << "Start fade out! " << isFadingOut << std::endl;
-}
+/*
+duration = total length of the video in seconds
+internalPTS = current playback position in seconds
+fadeInDuration = how long the fade-in effect should last in seconds
 
+let's say duration = 10 seconds, internalPTS = 8.5 seconds and fadeInDuration = 2.0 seconds
+
+10 - 8.5 = 1.5 -> 1.5 is < 2.0 so starts fading out 
+
+This method stops when the video ends (GetNextFrame returns false)
+*/
 void VideoSource::ComputeFadeOut()
 {
     // Don't start fade-out if we're still in fade-in phase
     if (internalPTS < fadeInDuration && fadeInDuration > 0.0f)
+        return;
+
+	//Ensures that fade-out logic only runs if the fade-out duration is set to a positive value
+    if (fadeOutDuration > 0.0f)
+    {
+        if ((duration - internalPTS) < fadeOutDuration)
+        {
+            isFadingOut = true;
+            alpha = (float)(duration - internalPTS) / fadeOutDuration;
+        }
+    }
+    
+
+    // Don't start fade-out if we're still in fade-in phase
+    /*if (internalPTS < fadeInDuration && fadeInDuration > 0.0f)
 		return; 
 
     if ((duration - internalPTS) < fadeOutDuration && fadeOutDuration > 0.0f)
@@ -260,7 +267,7 @@ void VideoSource::ComputeFadeOut()
     }
 
     if (alpha < 0.0f) 
-        alpha = 0.0f;
+        alpha = 0.0f;*/
 }
 
 

@@ -2,6 +2,7 @@
 #include "VideoSource.h"
 #include "IRenderer.h"
 #include "utils.h"
+#include <iostream>
 
 VideoTrack::VideoTrack(VideoSource* videoSource)
 {
@@ -51,6 +52,19 @@ void VideoTrack::Render(IRenderer* renderer, DXShader* shader, float winW, float
     // 2. Compute alpha state at full engine loop cadence (60 FPS)
 	videoSource->ComputeFadeIn();
 	videoSource->ComputeFadeOut();
+
+    if (videoSource->isFadingIn)
+        state = VideoTrackState::FadingIn;
+    else if (videoSource->isFadingOut)
+        state = VideoTrackState::FadingOut;
+    else if (state == VideoTrackState::FadingIn || state == VideoTrackState::FadingOut)
+        state = VideoTrackState::Playing; // Transition to playing after fades complete
+    
+    if (prevState != state)
+    {
+        std::cout << "Track state changed: " << VideoTrackStateToStr(prevState) << " -> " << VideoTrackStateToStr(state) << std::endl;
+        prevState = state;
+	}
 
     // 3. Command the renderer to draw this specific track
     renderer->DrawVideo(videoSource, shader, shouldBlend, winW, winH);

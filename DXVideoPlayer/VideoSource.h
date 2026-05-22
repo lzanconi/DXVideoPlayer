@@ -49,7 +49,6 @@ public:
 	void Rewind();
 	void StartFadeIn(float fadeInTime = -1.0f);
     void ComputeFadeIn();
-	void StartFadeOut(float fadeOutTime = -1.0f);
 	void ComputeFadeOut();
     
 

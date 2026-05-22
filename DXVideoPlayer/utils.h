@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <chrono>
+#include "customtypes.h"
 
 // Utility function to convert std::string (UTF-8) to std::wstring (UTF-16)
 inline std::wstring stringToWS(const std::string& s) 
@@ -18,4 +19,16 @@ inline double GetTimeStd()
     static auto start = std::chrono::high_resolution_clock::now();
     auto now = std::chrono::high_resolution_clock::now();
     return std::chrono::duration<double>(now - start).count();
+}
+
+inline std::string VideoTrackStateToStr(VideoTrackState state)
+{
+    switch (state)
+    {
+        case VideoTrackState::Stopped: return "Stopped";
+        case VideoTrackState::FadingIn: return "FadingIn";
+        case VideoTrackState::Playing: return "Playing";
+        case VideoTrackState::FadingOut: return "FadingOut";
+        default: return "Unknown";
+    }
 }
