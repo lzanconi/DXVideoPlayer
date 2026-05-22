@@ -265,6 +265,7 @@ void VideoSource::ComputeFadeIn()
 */
 bool VideoSource::ComputeNaturalFadeOut()
 {
+	//Ensures that the video has played long enough to move past the initial fade-in phase before allowing any fade-out logic to take effect.
     if (internalPTS > fadeInDuration)
     {
         hasMovedPastStart = true;
@@ -274,6 +275,7 @@ bool VideoSource::ComputeNaturalFadeOut()
     if (internalPTS < fadeInDuration && fadeInDuration > 0.0f)
         return false;
 
+	// Don't start natural fade-out if we haven't even moved past the fade-in phase yet
     if (!hasMovedPastStart)
         return false;
 
