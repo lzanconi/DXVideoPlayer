@@ -1,6 +1,9 @@
 #pragma once
 #include <windows.h>
 #include "customtypes.h"
+#include <string>
+#include <mutex>
+#include <queue>
 #include "IApp.h"
 #include "VideoTrack.h"
 
@@ -38,19 +41,29 @@ private:
 	std::unique_ptr<VideoTrack> bgTrack;
 	std::unique_ptr<VideoTrack> fgTrack;
 
+	//Deferred command queue and mutex for thread-safe communication between the NetworkManager thread and the main thread
+	std::queue<DeferredCommand> commandQueue;
+
+	//Mutex to protect access to the command queue when enqueuing commands from the NetworkManager thread and processing them in the main thread
+	std::mutex queueMutex;
+
 public:
 	App(int width, int height);
 	~App();
 
 	void Run();
+	void SendTCPMessage(const std::string& message);
+	
 
 	VideoSource* GetBackgroundVideo() override;
 	std::vector<float> GetPositions() override;
 	double GetLastPTS() override;
 	int64_t GetBGCaptureTimeNS() override;
 	void SetClientSocket(int socket) override;
+	void HandleNetworkCommand(const std::string& jsonStr) override;
 
 private:
+	void ProcessDeferredCommands();
 	static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 	LRESULT HandleMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 	void ToggleFullscreen(HWND hwnd);

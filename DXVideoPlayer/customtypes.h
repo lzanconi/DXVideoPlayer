@@ -44,3 +44,20 @@ enum class VideoTrackState
     Playing,
     FadingOut   
 };  
+
+//Enumeration for different types of network commands that can be deferred and processed in the main thread
+enum class NetworkCommandType
+{
+    Stop,
+    PlayForeground
+};
+
+//Struct to represent a deferred network command, containing the command type and any associated data (e.g., filename for PlayForeground)
+struct DeferredCommand
+{
+    NetworkCommandType type;
+    std::string filename;
+    float fadeInDuration = 0.0f;
+    float fadeOutDuration = 0.0f;
+    bool looped = false;
+};

@@ -79,7 +79,7 @@ void NetworkManager::Stop()
 }
 
 //##########################################################################################
-//##    CLIENT IMPLEMENTATION
+//##    CLIENT IMPLEMENTATION (SEND POSITIONS)
 //##########################################################################################
 
 void NetworkManager::RunClient()
@@ -215,7 +215,7 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
 }
 
 //##########################################################################################
-//##    SERVER IMPLEMENTATION
+//##    SERVER IMPLEMENTATION (RECEIVE COMMANDS)
 //##########################################################################################
 
 void NetworkManager::RunServer()
@@ -322,7 +322,7 @@ void NetworkManager::HandleIncomingConnection(SOCKET clientSocket)
         {
             recvBuffer[bytesReceived] = '\0';
             //std::cout << "[Network Server] Received message: " << recvBuffer << std::endl;
-            //appInterface->HandleCommand(std::string(recvBuffer));
+            appInterface->HandleNetworkCommand(std::string(recvBuffer));
         }
         else if (bytesReceived == 0)
         {

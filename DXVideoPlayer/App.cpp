@@ -7,7 +7,9 @@
 #include "NetworkManager.h"
 #include "ContentManager.h"
 #include <iostream>
+#include <json.hpp>
 
+using json = nlohmann::json;
 
 // Initialize the static AppState member
 AppState App::state;
@@ -97,6 +99,8 @@ void App::Run()
             continue;
         }
 
+		ProcessDeferredCommands();
+
         if (spaceBarPressed)
         {
 			spaceBarPressed = false;
@@ -130,6 +134,20 @@ void App::Run()
 	}
 }
 
+void App::SendTCPMessage(const std::string& message)
+{
+    if (clientSocket > 0)
+    {
+        int bytesSent = send(static_cast<SOCKET>(clientSocket), message.c_str(), static_cast<int>(message.length()), 0);
+        if (bytesSent == -1)
+        {
+            std::cerr << "App::HandleCommand failed to send response back to client." << std::endl;
+        }
+    }
+}
+
+
+
 VideoSource* App::GetBackgroundVideo()
 {
     return bgTrack ? bgTrack->GetSource() : nullptr;
@@ -153,6 +171,81 @@ int64_t App::GetBGCaptureTimeNS()
 void App::SetClientSocket(int socket)
 {
 	clientSocket = socket;
+}
+
+void App::HandleNetworkCommand(const std::string& jsonStr)
+{
+    try
+    {
+        //Parse the json string received from the NetworkManager into a JSON object for easy access to its properties
+        auto j = json::parse(jsonStr);
+        std::string filename = "";
+        bool commandProcessed = false;
+        std::string responseMessage = "{\"status\":\"ok\"}";
+
+        //Prepare a DeferredCommand struct to store the parsed command information that will be safely passed to the main thread for execution
+        DeferredCommand cmd;
+
+		//STOP COMMAND:
+        if (j.contains("stop"))
+        {
+            //Set the command type to Stop, which will be used in the main thread to determine which action to execute
+            cmd.type = NetworkCommandType::Stop;
+
+            //Safely enqueue the command into the shared command queue with proper locking to ensure thread safety
+            std::lock_guard<std::mutex> lock(queueMutex);
+            commandQueue.push(cmd);
+
+            commandProcessed = true;
+            responseMessage = "{\"status\":\"acknowledged\",\"command\":\"stop\"}";
+        }
+
+        //If the command was successfully parsed and recognized, send an acknowledgment response back to the client
+        if (clientSocket > 0 && commandProcessed)
+        {
+            SendTCPMessage(responseMessage);
+        }
+    }
+    catch (const std::exception& ex)
+    {
+        std::cerr << "Error handling network command: " << ex.what() << std::endl;
+	}
+
+
+}
+
+void App::ProcessDeferredCommands()
+{
+    //To minimize the time spent holding the queue mutex, we swap the main command queue with a local queue and process 
+    //the commands outside of the locked section.
+    std::queue<DeferredCommand> localQueue;
+
+    //Lock the queue mutex to safely access and swap the command queue
+    std::lock_guard<std::mutex> lock(queueMutex);
+    if (commandQueue.empty())
+        return;
+
+    //Swap the main command queue with an empty local queue to quickly transfer ownership of the pending commands
+    std::swap(commandQueue, localQueue);
+
+    while (!localQueue.empty())
+    {
+        DeferredCommand cmd = localQueue.front();
+        localQueue.pop();
+
+        //Process the command based on its type, executing the corresponding actions in the main thread's context
+        switch (cmd.type)
+        {
+            //STOP COMMAND: 
+            //Triggers an immediate fade-out of any active foreground video and halts any ongoing sequences
+            case NetworkCommandType::Stop:
+            {
+                std::cout << ">>> [Main Thread] Processing deferred 'stop' action." << std::endl;
+                //StopForegroundActivities();
+                break;
+            }
+        }
+    }
 }
 
 LRESULT App::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
