@@ -59,6 +59,10 @@ App::App(int width, int height)
     bgTrack = std::make_unique<VideoTrack>(state.sources[0]);
     fgTrack = std::make_unique<VideoTrack>(state.sources[1]);
 
+
+    fgTrack->GetSource()->fadeInDuration = 0.0f; // Background video starts immediately without fading
+    //fgTrack->GetSource()->fadeOutDuration = 0.0f; // Background video does not fade out naturally
+
     bgTrack->SetBlending(false);
     fgTrack->SetBlending(true);
 
@@ -241,7 +245,7 @@ void App::ProcessDeferredCommands()
             case NetworkCommandType::Stop:
             {
                 std::cout << ">>> [Main Thread] Processing deferred 'stop' action." << std::endl;
-                //StopForegroundActivities();
+                StopForegroundActivities();
                 
                 break;
             }

@@ -32,6 +32,8 @@ void VideoTrack::Play(double startTime)
     {
         state = VideoTrackState::Playing;
     }
+
+    prevState = VideoTrackState::Stopped;
 }
 
 void VideoTrack::Rewind()

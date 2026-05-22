@@ -188,6 +188,10 @@ void VideoSource::Play(double startTime)
 	internalPTS = 0.0;
     lastPTS = -1.0; // Reset lastPTS to allow immediate frame decoding
     isForcedFadingOut = false;
+	isFadingIn = false;
+	isFadingOut = false;
+    hasMovedPastStart = false;
+	alpha = 1.0f;
 }
 
 void VideoSource::Rewind()
@@ -200,6 +204,10 @@ void VideoSource::Rewind()
     lastPTS = -1.0;
     internalPTS = 0.0;
     isForcedFadingOut = false;
+    isFadingOut = false;
+    isFadingIn = false;
+    hasMovedPastStart = false;
+    alpha = 1.0f;
 }
 
 void VideoSource::StartFadeIn(float fadeInTime)
@@ -242,20 +250,31 @@ void VideoSource::ComputeFadeIn()
 }
 
 /*
-duration = total length of the video in seconds
-internalPTS = current playback position in seconds
-fadeInDuration = how long the fade-in effect should last in seconds
+* NATURAL FADE OUT
+* This method automatically starts fading out the video when the playback position enters the final fadeOutDuration seconds of the video.
+* 
+* duration = total length of the video in seconds
+* internalPTS = current playback position in seconds
+* fadeInDuration = how long the fade-in effect should last in seconds
+*
+* let's say duration = 10 seconds, internalPTS = 8.5 seconds and fadeInDuration = 2.0 seconds
+*
+* 10 - 8.5 = 1.5 -> 1.5 is < 2.0 so starts fading out
 
-let's say duration = 10 seconds, internalPTS = 8.5 seconds and fadeInDuration = 2.0 seconds
-
-10 - 8.5 = 1.5 -> 1.5 is < 2.0 so starts fading out 
-
-This method stops when the video ends (GetNextFrame returns false)
+* This method stops when the video ends (GetNextFrame returns false)
 */
 bool VideoSource::ComputeNaturalFadeOut()
 {
+    if (internalPTS > fadeInDuration)
+    {
+        hasMovedPastStart = true;
+    }
+
     // Don't start natural fade-out if we're still in the initial fade-in phase
     if (internalPTS < fadeInDuration && fadeInDuration > 0.0f)
+        return false;
+
+    if (!hasMovedPastStart)
         return false;
 
     if (fadeOutDuration > 0.0f)
@@ -278,15 +297,25 @@ bool VideoSource::ComputeNaturalFadeOut()
     return false;
 }
 
+/*
+* FORCED FADE OUT
+* This method allows the application to trigger a fade-out effect at any point during playback, regardless of the current position in the video.
+* 
+* 
+*/
 bool VideoSource::ComputeForcedFadeOut()
 {
     if (!isForcedFadingOut) 
         return false;
 
-    double elapsed = GetTimeStd() - forcedFadeOutStartTime;
+    float fadeOutTime = 1.0f;
     if (fadeOutDuration > 0.0f)
+		fadeOutTime = fadeOutDuration;
+
+    double elapsed = GetTimeStd() - forcedFadeOutStartTime;
+    if (fadeOutTime > 0.0f)
     {
-        float progress = (float)elapsed / fadeOutDuration;
+        float progress = (float)elapsed / fadeOutTime;
         alpha = forcedFadeOutStartAlpha * (1.0f - progress);
 
         if (alpha <= 0.0f)

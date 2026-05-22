@@ -34,6 +34,7 @@ public:
 	bool isFadingIn = false;
 	bool isFadingOut = false;   
     bool isForcedFadingOut = false;     
+    bool hasMovedPastStart = false;
     double forcedFadeOutStartTime = 0.0; 
     float forcedFadeOutStartAlpha = 1.0f;
     float fadeInDuration = 2.0f;
