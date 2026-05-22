@@ -22,6 +22,16 @@ void VideoTrack::Play(double startTime)
 {
     isActive = true;
     videoSource->Play(startTime);
+
+    if (videoSource->fadeInDuration > 0.0f)
+    {
+		state = VideoTrackState::FadingIn;
+        StartFadeIn();
+    }
+    else
+    {
+        state = VideoTrackState::Playing;
+    }
 }
 
 void VideoTrack::Rewind()
@@ -31,13 +41,26 @@ void VideoTrack::Rewind()
 
 void VideoTrack::StartFadeIn(float fadeInTime)
 {
+	state = VideoTrackState::FadingIn;
     videoSource->StartFadeIn(fadeInTime);
 }
 
 void VideoTrack::Render(IRenderer* renderer, DXShader* shader, float winW, float winH)
 {
     // If the track isn't active, don't waste any execution time
-    if (!isActive) return;
+    if (!isActive)
+    {
+        if (state != VideoTrackState::Stopped)
+        {
+            state = VideoTrackState::Stopped;
+            if (prevState != state)
+            {
+                std::cout << "Track state changed: " << VideoTrackStateToStr(prevState) << " -> " << VideoTrackStateToStr(state) << std::endl;
+                prevState = state;
+            }
+		}
+        return;
+    }
 
     ID3D11DeviceContext* context = renderer->GetContext();
 
@@ -46,6 +69,12 @@ void VideoTrack::Render(IRenderer* renderer, DXShader* shader, float winW, float
     {
         // If GetNextFrame returns false, the video hit the end (and looped is false)
         isActive = false;
+		state = VideoTrackState::Stopped;
+        if (prevState != state)
+        {
+            std::cout << "Track state changed: " << VideoTrackStateToStr(prevState) << " -> " << VideoTrackStateToStr(state) << std::endl;
+            prevState = state;
+        }
         return;
     }
 

@@ -170,7 +170,7 @@ bool VideoSource::GetNextFrame(ID3D11DeviceContext* context)
                         isFadingOut = false;
 						alpha = 0.0f; // Ensure alpha is fully transparent at the end of the video
                     }
-                    std::cout << "Video ENDED : " << alpha << " isFadingOut: " << isFadingOut << std::endl;
+                    //std::cout << "Video ENDED : " << alpha << " isFadingOut: " << isFadingOut << std::endl;
                     return false;
                 }
             }
@@ -206,7 +206,6 @@ void VideoSource::StartFadeIn(float fadeInTime)
 		fadeInDuration = fadeInTime;    
 
 	isFadingIn = true;
-	std::cout << "Start fade in! " << isFadingIn << std::endl;
 }
 
 void VideoSource::ComputeFadeIn()
@@ -251,6 +250,7 @@ void VideoSource::ComputeFadeOut()
     {
         if ((duration - internalPTS) < fadeOutDuration)
         {
+            //std::cout << "FADE OUT " << isFadingOut << std::endl;
             isFadingOut = true;
             alpha = (float)(duration - internalPTS) / fadeOutDuration;
         }
