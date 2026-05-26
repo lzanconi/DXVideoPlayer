@@ -88,7 +88,7 @@ void App::Run()
             //fgTrack->Rewind();
             //fgTrack->Play(GetTimeStd());
 			//fgTrack->StartFadeIn();
-			UpdateAndPlatFG(1);
+            UpdateAndPlayFG(1);
         }
 
         RECT rc; 
@@ -316,7 +316,7 @@ void App::ProcessDeferredCommands()
 
                 if (matchIdx != -1)
                 {
-                    UpdateAndPlatFG(matchIdx);
+                    UpdateAndPlayFG(matchIdx, &cmd);
                 }
                 else 
                 {
@@ -336,7 +336,7 @@ void App::StopForegroundActivities()
     }
 }
 
-void App::UpdateAndPlatFG(int videoSourceIdx)
+void App::UpdateAndPlayFG(int videoSourceIdx, DeferredCommand* cmd)
 {
     if (videoSourceIdx < 0 || videoSourceIdx >= static_cast<int>(state.sources.size()))
     {
@@ -345,6 +345,14 @@ void App::UpdateAndPlatFG(int videoSourceIdx)
     }
 
     std::cout << "[Main Thread] Swapping foreground video to index: " << videoSourceIdx << " (" << state.sources[videoSourceIdx]->filename << ")" << std::endl;
+    
+    if (cmd)
+    {
+        state.sources[videoSourceIdx]->fadeInDuration = cmd->fadeInDuration;
+        state.sources[videoSourceIdx]->fadeOutDuration = cmd->fadeOutDuration;
+        state.sources[videoSourceIdx]->looped = cmd->looped;
+	}
+
     fgTrack = std::make_unique<VideoTrack>(state.sources[videoSourceIdx]);
     fgTrack->SetBlending(true);
     fgTrack->Rewind();
