@@ -266,6 +266,10 @@ void VideoSource::ComputeFadeIn()
 */
 bool VideoSource::ComputeNaturalFadeOut()
 {
+	//Ensures that if the video is looped, the natural fade-out logic is completely bypassed
+    if (looped)
+        return false;
+
 	//Ensures that the video has played long enough to move past the initial fade-in phase before allowing any fade-out logic to take effect.
     if (internalPTS > fadeInDuration)
     {
