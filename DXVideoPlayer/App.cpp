@@ -17,7 +17,7 @@ AppState App::state;
 App::App(int width, int height)
 {
     contentMgr = new ContentManager(this);
-    contentMgr->LoadVideoContentFromFolder(".\\Videos");
+    contentMgr->LoadContents(".\\Videos");
     if (contentMgr->GetVideoContents().empty())
     {
         /*std::cerr << "No .mp4 files found." << std::endl;*/
@@ -147,6 +147,11 @@ double App::GetLastPTS()
 int64_t App::GetBGCaptureTimeNS()
 {
 	return state.sources[0]->bg_capture_time_ns;
+}
+
+AppState& App::GetAppState()
+{
+    return state;
 }
 
 void App::SetClientSocket(int socket)

@@ -10,7 +10,27 @@ namespace fs = std::filesystem;
 
 ContentManager::ContentManager(IApp* appInterface) : appInterface(appInterface) {}
 
-void ContentManager::LoadVideoContentFromFolder(const std::string& folderPath)
+void ContentManager::LoadContents(const std::string& folderPath)
+{
+    try
+    {
+        if (!fs::exists(folderPath) || !fs::is_directory(folderPath))
+        {
+            std::cerr << "Directory does not exist: " << folderPath << std::endl;
+            return;
+        }
+
+        LoadVideoContents(folderPath);
+
+		LoadSequences(folderPath);
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Error loading contents from folder: " << e.what() << std::endl;
+    }
+}
+
+void ContentManager::LoadVideoContents(const std::string& folderPath)
 {
 	videoContents.clear();
 

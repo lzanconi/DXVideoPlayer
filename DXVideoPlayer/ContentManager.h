@@ -14,8 +14,9 @@ public:
 	ContentManager(IApp* appInterface);
 	~ContentManager() = default;
 
+	void LoadContents(const std::string& folderPath);
 	// Scans the folder for .mp4 files and matching .csv position files
-	void LoadVideoContentFromFolder(const std::string& folderPath);
+	void LoadVideoContents(const std::string& folderPath);
 
 	// Returns the list of loaded video content
 	const std::vector<VideoContent>& GetVideoContents() const;
