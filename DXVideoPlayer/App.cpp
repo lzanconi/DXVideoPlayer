@@ -180,6 +180,37 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
             responseMessage = "{\"status\":\"acknowledged\",\"command\":\"stop\"}";
         }
 
+		//PLAY FOREGROUND COMMAND:
+        if (j.contains("play_foreground"))
+        {
+            //Set the command type to PlayForeground, which will be used in the main thread to determine which action to execute
+            cmd.type = NetworkCommandType::PlayForeground;
+            //Extract the filename parameter from the JSON command, which specifies which video to play in the foreground
+            cmd.filename = j["play_foreground"].get<std::string>();
+
+            if (j.contains("fade_in_seconds"))
+            {
+                cmd.fadeInDuration = j["fade_in_seconds"].get<float>();
+            }
+
+            if (j.contains("fade_out_seconds"))
+            {
+                cmd.fadeOutDuration = j["fade_out_seconds"].get<float>();
+            }
+
+            if (j.contains("loop"))
+            {
+                cmd.looped = j["loop"].get<bool>();
+            }
+
+            //Safely enqueue the command into the shared command queue with proper locking to ensure thread safety
+            std::lock_guard<std::mutex> lock(queueMutex);
+            commandQueue.push(cmd);
+
+            commandProcessed = true;
+            responseMessage = "{\"status\":\"acknowledged\",\"command\":\"play_background\"}";
+        }
+
         //If the command was successfully parsed and recognized, send an acknowledgment response back to the client
         if (clientSocket > 0 && commandProcessed)
         {
@@ -265,6 +296,24 @@ void App::ProcessDeferredCommands()
                 StopForegroundActivities();
                 
                 break;
+            }
+
+            case NetworkCommandType::PlayForeground:
+            {
+                std::cout << "[Main Thread] Processing deferred 'play_foreground' action: " << cmd.filename << std::endl;
+
+                //Search for the video source index that matches the filename specified in the command
+                int matchIdx = -1;
+                for (size_t i = 0; i < state.sources.size(); ++i)
+                {
+                    if (state.sources[i]->filename == cmd.filename)
+                    {
+                        matchIdx = static_cast<int>(i);
+                        break;
+                    }
+                }
+
+                //TODO: Call method to update foreground video track
             }
         }
     }
