@@ -60,7 +60,7 @@ App::App(int width, int height)
     fgTrack = std::make_unique<VideoTrack>(state.sources[1]);
 
 
-    fgTrack->GetSource()->fadeInDuration = 0.0f; // Background video starts immediately without fading
+    //fgTrack->GetSource()->fadeInDuration = 0.0f; // Background video starts immediately without fading
     //fgTrack->GetSource()->fadeOutDuration = 0.0f; // Background video does not fade out naturally
 
     bgTrack->SetBlending(false);
