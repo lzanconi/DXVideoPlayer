@@ -51,3 +51,12 @@ struct DeferredCommand
     float fadeOutDuration = 0.0f;
     bool looped = false;
 };
+
+//Struct to represent an item in a video sequence, containing the filename and any associated playback parameters
+struct SequenceItem
+{
+    std::string filename;
+    float fadeInDuration = 0.0f;
+    float fadeOutDuration = 0.0f;
+    bool looped = false;
+};

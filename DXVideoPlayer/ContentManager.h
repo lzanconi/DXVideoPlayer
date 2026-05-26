@@ -23,5 +23,7 @@ public:
 private:
 	// Internal helper to parse position data from CSV files
 	void LoadCSVPositions(VideoContent& content, const std::string& csvPath);
+	void LoadSequences(const std::string folderPath);
+	std::vector<SequenceItem*> ParseSequenceFile(const std::string& sequencePath);
 };
 
