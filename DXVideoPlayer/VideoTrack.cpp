@@ -13,7 +13,6 @@ VideoTrack::~VideoTrack()
 {
     if (videoSource)
     {
-        delete videoSource;
         videoSource = nullptr;
 	}
 }

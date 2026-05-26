@@ -84,10 +84,11 @@ void App::Run()
         if (spaceBarPressed)
         {
 			spaceBarPressed = false;
-            fgActive = true;
-            fgTrack->Rewind();
-            fgTrack->Play(GetTimeStd());
+            //fgActive = true;
+            //fgTrack->Rewind();
+            //fgTrack->Play(GetTimeStd());
 			//fgTrack->StartFadeIn();
+			UpdateAndPlatFG(1);
         }
 
         RECT rc; 
@@ -313,7 +314,15 @@ void App::ProcessDeferredCommands()
                     }
                 }
 
-                //TODO: Call method to update foreground video track
+                if (matchIdx != -1)
+                {
+                    UpdateAndPlatFG(matchIdx);
+                }
+                else 
+                {
+                    std::cerr << "Deferred command error: No video found with filename " << cmd.filename << std::endl;
+                    SendTCPMessage("{\"status\":\"error\",\"message\":\"'play_foreground' no video found with filename " + cmd.filename + "\"}");
+				}
             }
         }
     }
@@ -325,6 +334,22 @@ void App::StopForegroundActivities()
     {
         fgTrack->StartForcedFadeOut();
     }
+}
+
+void App::UpdateAndPlatFG(int videoSourceIdx)
+{
+    if (videoSourceIdx < 0 || videoSourceIdx >= static_cast<int>(state.sources.size()))
+    {
+		std::cerr << "Invalid video source index: " << videoSourceIdx << std::endl;
+        return;
+    }
+
+    std::cout << "[Main Thread] Swapping foreground video to index: " << videoSourceIdx << " (" << state.sources[videoSourceIdx]->filename << ")" << std::endl;
+    fgTrack = std::make_unique<VideoTrack>(state.sources[videoSourceIdx]);
+    fgTrack->SetBlending(true);
+    fgTrack->Rewind();
+	fgTrack->Play(GetTimeStd());
+	fgActive = true;
 }
 
 LRESULT App::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)

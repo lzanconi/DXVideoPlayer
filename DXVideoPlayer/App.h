@@ -69,6 +69,7 @@ private:
 	void InitVideoTracks();
 	void ProcessDeferredCommands();
 	void StopForegroundActivities();
+	void UpdateAndPlatFG(int videoSourceIdx);
 	static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 	LRESULT HandleMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 	void ToggleFullscreen(HWND hwnd);
