@@ -42,6 +42,7 @@ private:
 
 	std::unique_ptr<VideoTrack> bgTrack;
 	std::unique_ptr<VideoTrack> fgTrack;
+	std::unique_ptr<Sequence> activeSequence = nullptr;
 
 	//Deferred command queue and mutex for thread-safe communication between the NetworkManager thread and the main thread
 	std::queue<DeferredCommand> commandQueue;

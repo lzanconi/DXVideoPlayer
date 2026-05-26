@@ -6,10 +6,12 @@ class VideoSource;
 class IRenderer;
 class NetworkManager;
 class Sequence;
+class VideoTrack;
 
 struct AppState
 {
     std::vector<VideoSource*> sources;
+	std::vector<VideoTrack*> videoTracks;
 	std::vector<Sequence*> sequences;
     IRenderer* renderer = nullptr;
     NetworkManager* networkMgr = nullptr;
@@ -41,7 +43,8 @@ enum class VideoTrackState
 enum class NetworkCommandType
 {
     Stop,
-    PlayForeground
+    PlayForeground,
+	PlaySequence
 };
 
 //Struct to represent a deferred network command, containing the command type and any associated data (e.g., filename for PlayForeground)

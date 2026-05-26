@@ -5,6 +5,7 @@
 #include <sstream>
 #include "App.h"
 #include "utils.h"
+#include "Sequence.h"
 
 namespace fs = std::filesystem;
 
@@ -174,8 +175,8 @@ void ContentManager::LoadSequences(const std::string folderPath)
                 std::string seqFilename = GetFilenameFromPath(sequencePath);
 
                 std::vector<SequenceItem*> sequenceItems = ParseSequenceFile(sequencePath);
-                /*Sequence* sequence = new Sequence(seqFilename, sequenceItems, appInterface);
-                appInterface->GetAppState().sequences.push_back(sequence);*/
+                Sequence* sequence = new Sequence(seqFilename, sequenceItems, appInterface);
+                appInterface->GetAppState().sequences.push_back(sequence);
             }
         }
     }
