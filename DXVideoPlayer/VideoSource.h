@@ -42,6 +42,7 @@ public:
 	float alpha = 1.0f;
     std::atomic<int64_t> bg_capture_time_ns;
     std::vector<float> positions;
+    std::string filename;
 
 public:
 	VideoSource() = default;

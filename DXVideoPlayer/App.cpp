@@ -16,9 +16,9 @@ AppState App::state;
 
 App::App(int width, int height)
 {
-    ContentManager contentMgr;
-    contentMgr.LoadVideoContentFromFolder(".\\Videos");
-    if (contentMgr.GetVideoContents().empty())
+    contentMgr = new ContentManager(this);
+    contentMgr->LoadVideoContentFromFolder(".\\Videos");
+    if (contentMgr->GetVideoContents().empty())
     {
         /*std::cerr << "No .mp4 files found." << std::endl;*/
 		MessageBoxA(nullptr, "No .mp4 files found in the Videos folder.", "Error", MB_ICONERROR);
@@ -38,33 +38,9 @@ App::App(int width, int height)
     videoShader = new DXShader();
     videoShader->LoadFromFile(renderer->GetDevice(), L"shaders.hlsl");
 
-    for (const auto& videoContent : contentMgr.GetVideoContents())
-    {
-        VideoSource* videoSource = new VideoSource();
-        if (videoSource->OpenFile(videoContent.filename, renderer->GetDevice(), renderer->GetContext()))
-        {
-            videoSource->fadeInDuration = videoContent.fadeInDuration;
-            videoSource->fadeOutDuration = videoContent.fadeOutDuration;
-            videoSource->looped = videoContent.looped;
-            videoSource->positions = videoContent.positions;
-            state.sources.push_back(videoSource);
-        }
-        else
-        {
-            std::cerr << "Failed to open video: " << videoContent.filename << std::endl;
-            delete videoSource;
-        }
-    }
+	LoadVideoSources(renderer->GetDevice(), renderer->GetContext());
 
-    bgTrack = std::make_unique<VideoTrack>(state.sources[0]);
-    fgTrack = std::make_unique<VideoTrack>(state.sources[1]);
-
-
-    //fgTrack->GetSource()->fadeInDuration = 0.0f; // Background video starts immediately without fading
-    //fgTrack->GetSource()->fadeOutDuration = 0.0f; // Background video does not fade out naturally
-
-    bgTrack->SetBlending(false);
-    fgTrack->SetBlending(true);
+	InitVideoTracks();
 
 	bgTrack->Play(GetTimeStd());
 
@@ -216,6 +192,47 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
 	}
 
 
+}
+
+void App::LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context)
+{
+    for (const auto& videoContent : contentMgr->GetVideoContents())
+    {
+        VideoSource* videoSource = new VideoSource();
+        if (videoSource->OpenFile(videoContent.filename, renderer->GetDevice(), renderer->GetContext()))
+        {
+            videoSource->fadeInDuration = videoContent.fadeInDuration;
+            videoSource->fadeOutDuration = videoContent.fadeOutDuration;
+            videoSource->looped = videoContent.looped;
+            videoSource->positions = videoContent.positions;
+            state.sources.push_back(videoSource);
+        }
+        else
+        {
+            std::cerr << "Failed to open video: " << videoContent.filename << std::endl;
+            delete videoSource;
+        }
+    }
+
+    for (const auto& source : state.sources)
+    {
+        std::cout << "VideoSource: " << source->filename << " Duration: " << GetDurationMinSec(static_cast<int>(source->duration)) << std::endl;
+    }
+}
+
+void App::InitVideoTracks()
+{
+    bgTrack = std::make_unique<VideoTrack>(state.sources[0]);
+    fgTrack = std::make_unique<VideoTrack>(state.sources[1]);
+
+
+    //fgTrack->GetSource()->fadeInDuration = 0.0f; // Background video starts immediately without fading
+    //fgTrack->GetSource()->fadeOutDuration = 0.0f; // Background video does not fade out naturally
+
+	//Disable blending for the background track since it will always be fully opaque
+    bgTrack->SetBlending(false);
+    //Enable blending for the foreground track to allow for proper alpha compositing during fade-in and fade-out transitions
+    fgTrack->SetBlending(true);
 }
 
 void App::ProcessDeferredCommands()

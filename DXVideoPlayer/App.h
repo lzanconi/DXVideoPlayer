@@ -27,6 +27,7 @@ private:
 	bool tKeyPressed = false;
 	bool fgActive = false;
 	int clientSocket = -1;	
+	ContentManager* contentMgr = nullptr;
 	IRenderer* renderer = nullptr;
 	DXShader* videoShader = nullptr;
 	AVBufferRef* hw_ctx;
@@ -64,6 +65,8 @@ public:
 	void HandleNetworkCommand(const std::string& jsonStr) override;
 
 private:
+	void LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context);
+	void InitVideoTracks();
 	void ProcessDeferredCommands();
 	void StopForegroundActivities();
 	static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
