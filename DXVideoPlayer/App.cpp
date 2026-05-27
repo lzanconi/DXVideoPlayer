@@ -8,6 +8,7 @@
 #include "ContentManager.h"
 #include <iostream>
 #include <json.hpp>
+#include "Sequence.h"
 
 using json = nlohmann::json;
 
@@ -17,7 +18,7 @@ AppState App::state;
 App::App(int width, int height)
 {
     contentMgr = new ContentManager(this);
-    contentMgr->LoadVideoContentFromFolder(".\\Videos");
+    contentMgr->LoadContents(".\\Videos");
     if (contentMgr->GetVideoContents().empty())
     {
         /*std::cerr << "No .mp4 files found." << std::endl;*/
@@ -91,32 +92,17 @@ void App::Run()
             UpdateAndPlayFG(1);
         }
 
-        // =================================================================
-        // PHASE 1: NON-BLOCKING UPDATE STAGE (Decode & Sync Textures First)
-        // =================================================================
-        ID3D11DeviceContext* ctx = renderer->GetContext();
-
-        if (bgTrack) 
-            bgTrack->UpdateFrame(ctx);
-        
-        if (fgActive && fgTrack) 
-            fgTrack->UpdateFrame(ctx);
-
-        // =================================================================
-        // PHASE 2: DIRECT3D RENDERING STAGE (Submit Draw Commands)
-        // =================================================================
         RECT rc; 
         GetClientRect(window, &rc);
         float w = (float)(rc.right - rc.left);
         float h = (float)(rc.bottom - rc.top);
 
 		renderer->BeginFrame();
-        // Background layer draws first
-        if (bgTrack) bgTrack->Render(renderer, videoShader, w, h);
+		bgTrack->Render(renderer, videoShader, w, h);
 
         if (fgActive)
         {
-            // If the foreground track finished playback inside Phase 1, flag active rendering loop to false
+            // If the foreground track finishes playback naturally, flag active rendering loop to false
             if (!fgTrack->IsActive())
             {
                 fgActive = false;
@@ -124,6 +110,18 @@ void App::Run()
             else
             {
                 fgTrack->Render(renderer, videoShader, w, h);
+            }
+        }
+
+        if (activeSequence)
+        {
+            if (!activeSequence->IsPlaying())
+            {
+				activeSequence.reset();
+            }
+            else
+            {
+                activeSequence->UpdateAndRender(renderer, videoShader, w, h);
             }
         }
         renderer->EndFrame();
@@ -162,6 +160,11 @@ double App::GetLastPTS()
 int64_t App::GetBGCaptureTimeNS()
 {
 	return state.sources[0]->bg_capture_time_ns;
+}
+
+AppState& App::GetAppState()
+{
+    return state;
 }
 
 void App::SetClientSocket(int socket)
@@ -227,6 +230,26 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
             responseMessage = "{\"status\":\"acknowledged\",\"command\":\"play_background\"}";
         }
 
+        if (j.contains("play_sequence"))
+        {
+            cmd.type = NetworkCommandType::PlaySequence;
+            cmd.filename = j["play_sequence"].get<std::string>();
+
+            // Check if the command specifies looping the entire sequence chain
+            if (j.contains("loop"))
+            {
+                cmd.looped = j["loop"].get<bool>();
+            }
+
+            // Safely push to the command queue to prevent cross-thread race conditions
+            std::lock_guard<std::mutex> lock(queueMutex);
+            commandQueue.push(cmd);
+
+            commandProcessed = true;
+            responseMessage = "{\"status\":\"acknowledged\",\"command\":\"play_sequence\"}";
+        }
+            
+
         //If the command was successfully parsed and recognized, send an acknowledgment response back to the client
         if (clientSocket > 0 && commandProcessed)
         {
@@ -269,6 +292,12 @@ void App::LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context)
 
 void App::InitVideoTracks()
 {
+
+    for (auto source : state.sources)
+    {
+        state.videoTracks.push_back(new VideoTrack(source));
+	}
+
     bgTrack = std::make_unique<VideoTrack>(state.sources[0]);
     fgTrack = std::make_unique<VideoTrack>(state.sources[1]);
 
@@ -332,12 +361,47 @@ void App::ProcessDeferredCommands()
                 if (matchIdx != -1)
                 {
                     UpdateAndPlayFG(matchIdx, &cmd);
+                    break;
                 }
                 else 
                 {
                     std::cerr << "Deferred command error: No video found with filename " << cmd.filename << std::endl;
                     SendTCPMessage("{\"status\":\"error\",\"message\":\"'play_foreground' no video found with filename " + cmd.filename + "\"}");
+                    break;
 				}
+            }
+
+            case NetworkCommandType::PlaySequence:
+            {
+                std::cout << "[Main Thread] Processing deferred 'play_sequence' action: " << cmd.filename << std::endl;
+
+                // Stop isolated foreground video activities to prevent alpha layer collisions
+                StopForegroundActivities();
+
+                // Look for the prepared sequence object configured by the ContentManager
+                Sequence* targetSequence = nullptr;
+                for (auto seq : state.sequences)
+                {
+                    if (seq->GetName() == cmd.filename)
+                    {
+                        targetSequence = seq;
+                        break;
+                    }
+                }
+
+                if (targetSequence)
+                {
+                    // Create a localized ownership context or utilize the pointer safely
+                    // Assuming items inside the existing `state.sequences` are fully populated:
+                    activeSequence = std::make_unique<Sequence>(*targetSequence);
+                    activeSequence->Start(GetTimeStd(), cmd.looped);
+                }
+                else
+                {
+                    std::cerr << "Deferred sequence error: Sequence definition not loaded for filename: " << cmd.filename << std::endl;
+                    SendTCPMessage("{\"status\":\"error\",\"message\":\"'play_sequence' definition not found for " + cmd.filename + "\"}");
+                }
+                break;
             }
         }
     }
@@ -372,12 +436,7 @@ void App::UpdateAndPlayFG(int videoSourceIdx, DeferredCommand* cmd)
     fgTrack->SetBlending(true);
     fgTrack->Rewind();
 	fgTrack->Play(GetTimeStd());
-	
-
-    ID3D11DeviceContext* ctx = renderer->GetContext();
-    state.sources[videoSourceIdx]->GetNextFrame(ctx);
-
-    fgActive = true;
+	fgActive = true;
 }
 
 LRESULT App::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
