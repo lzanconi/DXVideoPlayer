@@ -133,47 +133,45 @@ bool VideoSource::GetNextFrame(ID3D11DeviceContext* context)
     AVFrame* frame = av_frame_alloc();
     bool frameDecoded = false;
 
+    // CHANGED: Removed the blocking 'while (!frameDecoded)' loop.
+    // It now uses a non-blocking 'if' statement. If a frame isn't ready on this tick,
+    // it falls through safely without locking up the main thread execution loop.
     if (playPos > lastPTS)
     {
-        while (!frameDecoded)
+        if (av_read_frame(fmtCtx, raw_packet) >= 0)
         {
-            if (av_read_frame(fmtCtx, raw_packet) >= 0)
+            if (raw_packet->stream_index == streamIdx)
             {
-                if (raw_packet->stream_index == streamIdx)
+                if (avcodec_send_packet(decCtx, raw_packet) == 0)
                 {
-                    if (avcodec_send_packet(decCtx, raw_packet) == 0)
+                    if (avcodec_receive_frame(decCtx, frame) == 0)
                     {
-                        if (avcodec_receive_frame(decCtx, frame) == 0)
-                        {
-                            internalPTS = frame->best_effort_timestamp * av_q2d(fmtCtx->streams[streamIdx]->time_base);
-                            CopyFrameToDX11Texture(context, frame);
-                            lastPTS = playPos;
-                            frameDecoded = true;
-                            bg_capture_time_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                std::chrono::steady_clock::now().time_since_epoch()).count();
-                        }
+                        internalPTS = frame->best_effort_timestamp * av_q2d(fmtCtx->streams[streamIdx]->time_base);
+                        CopyFrameToDX11Texture(context, frame);
+                        lastPTS = playPos;
+                        frameDecoded = true;
+                        bg_capture_time_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                            std::chrono::steady_clock::now().time_since_epoch()).count();
                     }
                 }
-                av_packet_unref(raw_packet);
+            }
+            av_packet_unref(raw_packet);
+        }
+        else
+        {
+            if (looped)
+            {
+                Rewind();
+                Play(GetTimeStd());
+                frameDecoded = true; // Allow loop to start immediately 
             }
             else
             {
-                if (looped)
-                {
-                    Rewind();
-                    Play(GetTimeStd());
-                    frameDecoded = true; // Allow loop to start immediately 
-                }
-                else
-                {
-                    if (isFadingOut)
-                    {
-                        isFadingOut = false;
-						alpha = 0.0f; // Ensure alpha is fully transparent at the end of the video
-                    }
-                    //std::cout << "Video ENDED : " << alpha << " isFadingOut: " << isFadingOut << std::endl;
-                    return false;
-                }
+                // Clean up and signal that the video has naturally reached its end.
+                // Tracking state modifications are now safely managed inside VideoTrack.
+                av_frame_free(&frame);
+                av_packet_free(&raw_packet);
+                return false;
             }
         }
     }

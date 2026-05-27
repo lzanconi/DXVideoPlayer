@@ -91,17 +91,32 @@ void App::Run()
             UpdateAndPlayFG(1);
         }
 
+        // =================================================================
+        // PHASE 1: NON-BLOCKING UPDATE STAGE (Decode & Sync Textures First)
+        // =================================================================
+        ID3D11DeviceContext* ctx = renderer->GetContext();
+
+        if (bgTrack) 
+            bgTrack->UpdateFrame(ctx);
+        
+        if (fgActive && fgTrack) 
+            fgTrack->UpdateFrame(ctx);
+
+        // =================================================================
+        // PHASE 2: DIRECT3D RENDERING STAGE (Submit Draw Commands)
+        // =================================================================
         RECT rc; 
         GetClientRect(window, &rc);
         float w = (float)(rc.right - rc.left);
         float h = (float)(rc.bottom - rc.top);
 
 		renderer->BeginFrame();
-		bgTrack->Render(renderer, videoShader, w, h);
+        // Background layer draws first
+        if (bgTrack) bgTrack->Render(renderer, videoShader, w, h);
 
         if (fgActive)
         {
-            // If the foreground track finishes playback naturally, flag active rendering loop to false
+            // If the foreground track finished playback inside Phase 1, flag active rendering loop to false
             if (!fgTrack->IsActive())
             {
                 fgActive = false;
@@ -357,7 +372,12 @@ void App::UpdateAndPlayFG(int videoSourceIdx, DeferredCommand* cmd)
     fgTrack->SetBlending(true);
     fgTrack->Rewind();
 	fgTrack->Play(GetTimeStd());
-	fgActive = true;
+	
+
+    ID3D11DeviceContext* ctx = renderer->GetContext();
+    state.sources[videoSourceIdx]->GetNextFrame(ctx);
+
+    fgActive = true;
 }
 
 LRESULT App::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
