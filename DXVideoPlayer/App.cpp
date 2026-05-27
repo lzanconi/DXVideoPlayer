@@ -84,10 +84,6 @@ void App::Run()
         if (spaceBarPressed)
         {
 			spaceBarPressed = false;
-            //fgActive = true;
-            //fgTrack->Rewind();
-            //fgTrack->Play(GetTimeStd());
-			//fgTrack->StartFadeIn();
             UpdateAndPlayFG(1);
         }
 

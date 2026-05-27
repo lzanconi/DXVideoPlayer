@@ -53,7 +53,7 @@ public:
     void Play(double startTime);
 	void Rewind();
 	void StartFadeIn(float fadeInTime = -1.0f);
-	void StartForcedFadeOut(float fadeOutTime = -1.0f);
+	void StartForcedFadeOut();
     void ComputeFadeIn();
 
     bool ComputeNaturalFadeOut();

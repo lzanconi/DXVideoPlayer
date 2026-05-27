@@ -240,7 +240,7 @@ void VideoSource::StartFadeIn(float fadeInTime)
 	isFadingIn = true;
 }
 
-void VideoSource::StartForcedFadeOut(float fadeOutTime)
+void VideoSource::StartForcedFadeOut()
 {
     if (isForcedFadingOut) 
         return; // Already fading out
