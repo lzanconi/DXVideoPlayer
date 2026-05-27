@@ -92,6 +92,25 @@ void App::Run()
             UpdateAndPlayFG(1);
         }
 
+        // =================================================================
+        // PHASE 1: NON-BLOCKING UPDATE STAGE (Decode & Sync Textures First)
+        // =================================================================
+        ID3D11DeviceContext* ctx = renderer->GetContext();
+
+        if (bgTrack) 
+            bgTrack->UpdateFrame(ctx);
+
+        if (fgActive && fgTrack) 
+            fgTrack->UpdateFrame(ctx);
+
+        if (activeSequence && activeSequence->IsPlaying())
+        {
+            activeSequence->UpdateFrame(ctx);
+        }
+
+        // =================================================================
+        // PHASE 2: DIRECT3D RENDERING STAGE (Submit Draw Commands)
+        // =================================================================
         RECT rc; 
         GetClientRect(window, &rc);
         float w = (float)(rc.right - rc.left);
@@ -102,7 +121,6 @@ void App::Run()
 
         if (fgActive)
         {
-            // If the foreground track finishes playback naturally, flag active rendering loop to false
             if (!fgTrack->IsActive())
             {
                 fgActive = false;
@@ -117,7 +135,7 @@ void App::Run()
         {
             if (!activeSequence->IsPlaying())
             {
-				activeSequence.reset();
+                activeSequence.reset();
             }
             else
             {
@@ -436,6 +454,15 @@ void App::UpdateAndPlayFG(int videoSourceIdx, DeferredCommand* cmd)
     fgTrack->SetBlending(true);
     fgTrack->Rewind();
 	fgTrack->Play(GetTimeStd());
+
+    // =================================================================
+    // FIX: PRE-WARM DETECTOR BUFFER FOR INSTANT SWAPS
+    // Force-decode frame 0 immediately right here so Phase 1's non-blocking 
+    // update path doesn't hit a momentary false miss on its next cycle tick.
+    // =================================================================
+    ID3D11DeviceContext* ctx = renderer->GetContext();
+    state.sources[videoSourceIdx]->GetNextFrame(ctx);
+
 	fgActive = true;
 }
 

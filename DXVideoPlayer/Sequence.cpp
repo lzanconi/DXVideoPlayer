@@ -177,16 +177,24 @@ void Sequence::AdvanceSequence()
     }
 }
 
-void Sequence::UpdateAndRender(IRenderer* renderer, DXShader* shader, float winW, float winH)
+void Sequence::UpdateFrame(ID3D11DeviceContext* context)
 {
     if (!isPlaying || !activeTrack) return;
 
-    // Standard engine iteration path
-    activeTrack->Render(renderer, shader, winW, winH);
+    // Advance the current active sequence track through our non-blocking update phase
+    activeTrack->UpdateFrame(context);
 
-    // Swap signals as soon as the current foreground video naturally fades out completely
+    // Swap playlist components instantly if the active asset completes playback
     if (!activeTrack->IsActive())
     {
         AdvanceSequence();
     }
+}
+
+void Sequence::UpdateAndRender(IRenderer* renderer, DXShader* shader, float winW, float winH)
+{
+    if (!isPlaying || !activeTrack)
+        return;
+
+	activeTrack->Render(renderer, shader, winW, winH);
 }

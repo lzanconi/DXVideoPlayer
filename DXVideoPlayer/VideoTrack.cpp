@@ -17,6 +17,79 @@ VideoTrack::~VideoTrack()
 	}
 }
 
+void VideoTrack::UpdateFrame(ID3D11DeviceContext* context)
+{
+    if (!isActive)
+    {
+        if (state != VideoTrackState::Stopped)
+        {
+            state = VideoTrackState::Stopped;
+            if (prevState != state)
+            {
+                std::cout << "Track state changed: " << VideoTrackStateToStr(prevState) << " -> " << VideoTrackStateToStr(state) << std::endl;
+                prevState = state;
+            }
+        }
+        return;
+    }
+
+    // Advance the video decoding context
+    if (!videoSource->GetNextFrame(context))
+    {
+        // FIX: Only terminate the track if it has genuinely advanced past 
+        // the beginning, preventing initial cold-start seek misses from killing it.
+        if (videoSource->internalPTS > 0.0 || videoSource->lastPTS > 0.0)
+        {
+            isActive = false;
+            state = VideoTrackState::Stopped;
+            if (prevState != state)
+            {
+                std::cout << "Track state changed: " << VideoTrackStateToStr(prevState) << " -> " << VideoTrackStateToStr(state) << std::endl;
+                prevState = state;
+            }
+            return;
+        }
+    }
+
+    // Compute alpha state updates at full loop cadence
+    videoSource->ComputeFadeIn();
+
+    bool fadeOutFinished = false;
+    if (videoSource->isForcedFadingOut)
+    {
+        fadeOutFinished = videoSource->ComputeForcedFadeOut();
+    }
+    else
+    {
+        fadeOutFinished = videoSource->ComputeNaturalFadeOut();
+    }
+
+    if (fadeOutFinished)
+    {
+        isActive = false;
+        state = VideoTrackState::Stopped;
+        if (prevState != state)
+        {
+            std::cout << "Track state changed (Fade Complete): " << VideoTrackStateToStr(prevState) << " -> " << VideoTrackStateToStr(state) << std::endl;
+            prevState = state;
+        }
+        return;
+    }
+
+    // Sync state tracking variables smoothly
+    if (videoSource->isFadingIn)
+        state = VideoTrackState::FadingIn;
+    else if (videoSource->isForcedFadingOut || state == VideoTrackState::FadingOut)
+        state = VideoTrackState::FadingOut;
+    else if (state == VideoTrackState::FadingIn || state == VideoTrackState::FadingOut)
+        state = VideoTrackState::Playing;
+
+    if (prevState != state)
+    {
+        std::cout << "Track state changed: " << VideoTrackStateToStr(prevState) << " -> " << VideoTrackStateToStr(state) << std::endl;
+        prevState = state;
+    }
+}
 void VideoTrack::Play(double startTime)
 {
     isActive = true;
@@ -60,77 +133,8 @@ void VideoTrack::StartForcedFadeOut()
 
 void VideoTrack::Render(IRenderer* renderer, DXShader* shader, float winW, float winH)
 {
-    // If the track isn't active, don't waste any execution time
     if (!isActive)
-    {
-        if (state != VideoTrackState::Stopped)
-        {
-            state = VideoTrackState::Stopped;
-            if (prevState != state)
-            {
-                std::cout << "Track state changed: " << VideoTrackStateToStr(prevState) << " -> " << VideoTrackStateToStr(state) << std::endl;
-                prevState = state;
-            }
-		}
         return;
-    }
-
-    ID3D11DeviceContext* context = renderer->GetContext();
-
-    // 1. Advance the video decoding context (runs on raw packet cadence)
-    if (!videoSource->GetNextFrame(context))
-    {
-        // If GetNextFrame returns false, the video hit the end (and looped is false)
-        isActive = false;
-		state = VideoTrackState::Stopped;
-        if (prevState != state)
-        {
-            std::cout << "Track state changed: " << VideoTrackStateToStr(prevState) << " -> " << VideoTrackStateToStr(state) << std::endl;
-            prevState = state;
-        }
-        return;
-    }
-
-    // 2. Compute alpha state at full engine loop cadence (60 FPS)
-	videoSource->ComputeFadeIn();
-
-    bool fadeOutFinished = false;
-    if (videoSource->isForcedFadingOut)
-    {
-        // Execute dedicated forced-stop tracking tracking calculations
-        fadeOutFinished = videoSource->ComputeForcedFadeOut();
-    }
-    else
-    {
-        // Fall back to standard, linear asset tracking timeline rules
-        fadeOutFinished = videoSource->ComputeNaturalFadeOut();
-    }
-
-
-    if (fadeOutFinished)
-    {
-        isActive = false;
-        state = VideoTrackState::Stopped;
-        if (prevState != state)
-        {
-            std::cout << "Track state changed (Fade Complete): " << VideoTrackStateToStr(prevState) << " -> " << VideoTrackStateToStr(state) << std::endl;
-            prevState = state;
-        }
-        return; // Exit right away to guarantee zero frame ghosting artifacts
-    }
-
-    if (videoSource->isFadingIn)
-        state = VideoTrackState::FadingIn;
-    else if (videoSource->isFadingOut)
-        state = VideoTrackState::FadingOut; // This keeps it anchored during forced fades!
-    else if (state == VideoTrackState::FadingIn || state == VideoTrackState::FadingOut)
-        state = VideoTrackState::Playing;
-    
-    if (prevState != state)
-    {
-        std::cout << "Track state changed: " << VideoTrackStateToStr(prevState) << " -> " << VideoTrackStateToStr(state) << std::endl;
-        prevState = state;
-	}
 
     // 3. Command the renderer to draw this specific track
     renderer->DrawVideo(videoSource, shader, shouldBlend, winW, winH);

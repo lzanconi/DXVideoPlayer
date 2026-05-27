@@ -24,6 +24,8 @@ public:
     VideoTrack(VideoSource* videoSource);
     ~VideoTrack();
 
+	void UpdateFrame(ID3D11DeviceContext* context);
+
     // Core lifecycle call executed inside App::Run every loop tick (60 FPS)
     void Render(IRenderer* renderer, DXShader* shader, float winW, float winH);
 

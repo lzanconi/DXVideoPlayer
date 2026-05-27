@@ -8,6 +8,7 @@ class IApp;
 class VideoTrack;
 class IRenderer;
 class DXShader;
+struct ID3D11DeviceContext;
 
 class Sequence
 {
@@ -31,6 +32,7 @@ public:
 
     void Start(double startTime, bool loopSequence = false);
     void Stop();
+	void UpdateFrame(ID3D11DeviceContext* context);
     void UpdateAndRender(IRenderer* renderer, DXShader* shader, float winW, float winH);
 
     bool IsPlaying() const { return isPlaying; }
