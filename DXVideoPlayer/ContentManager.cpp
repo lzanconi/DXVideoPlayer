@@ -4,12 +4,34 @@
 #include <fstream>
 #include <sstream>
 #include "App.h"
+#include "utils.h"
+#include "customtypes.h"
 
 namespace fs = std::filesystem;
 
 ContentManager::ContentManager(IApp* appInterface) : appInterface(appInterface) {}
 
-void ContentManager::LoadVideoContentFromFolder(const std::string& folderPath)
+void ContentManager::LoadContentsFromFolder(const std::string& folderPath)
+{
+    try
+    {
+        if (!fs::exists(folderPath) || !fs::is_directory(folderPath))
+        {
+            std::cerr << "Directory does not exist: " << folderPath << std::endl;
+            return;
+        }
+
+        LoadVideoContents(folderPath);
+        LoadSequences(folderPath);
+
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Error loading contents from folder: " << e.what() << std::endl;
+    }
+}
+
+void ContentManager::LoadVideoContents(const std::string& folderPath)
 {
 	videoContents.clear();
 
@@ -134,4 +156,106 @@ void ContentManager::LoadCSVPositions(VideoContent& content, const std::string& 
             }
         }
     }
+}
+
+void ContentManager::LoadSequences(const std::string& folderPath)
+{
+    std::string sequencePath = "";
+
+    // First pass: scan the folder to see if a sequence text file exists
+    for (const auto& entry : fs::directory_iterator(folderPath))
+    {
+        if (entry.is_regular_file() && entry.path().extension() == ".txt")
+        {
+            std::string filename = entry.path().filename().string();
+            if (filename.find("sequence") != std::string::npos)
+            {
+                sequencePath = entry.path().string();
+                std::cout << ">> Found sequence file: " << sequencePath << std::endl;
+                std::string seqFilename = GetFilenameFromPath(sequencePath);
+
+                std::vector<SequenceItem> sequenceItems;
+                ParseSequenceFile(sequencePath, sequenceItems);
+                /*Sequence* sequence = new Sequence(seqFilename, sequenceItems, appInterface);
+                appInterface->GetAppState().sequences.push_back(sequence);*/
+            }
+        }
+    }
+}
+
+void ContentManager::ParseSequenceFile(const std::string& filePath, std::vector<SequenceItem>& outItems)
+{
+    std::cout << ">> Parsing sequence file: " << filePath << std::endl;
+
+    // Attempts to open the sequence definition text file at the provided file path.
+    std::ifstream file(filePath);
+    if (!file.is_open())
+    {
+        std::cerr << "Failed to open sequence file: " << filePath << std::endl;
+        return;
+    }
+
+    //Reads the file line by line until the end of the document is reached
+    std::string line;
+    while (std::getline(file, line))
+    {
+        // Ignores empty lines and lines starting with '#' which are treated as comments
+        if (line.empty() || line[0] == '#')
+            continue;
+
+        std::stringstream ss(line);
+        std::string videoFilename;
+
+        //If the line doesn't contain a comma or is improperly formatted, it will be skipped
+        if (!std::getline(ss, videoFilename, ','))
+            continue;
+
+        //Trims whitespace from both ends of the extracted video filename to ensure accurate matching
+        auto trim = [](std::string& str) {
+            str.erase(0, str.find_first_not_of(" \t\r\n"));
+            str.erase(str.find_last_not_of(" \t\r\n") + 1);
+            };
+
+        trim(videoFilename);
+
+        //Checks if the extracted video filename is not empty after trimming
+        if (videoFilename.empty())
+            continue;
+
+        SequenceItem seqItem;
+        seqItem.filename = videoFilename;
+
+        //Processes the remaining part of the line to extract key-value pairs for fade durations and loop settings
+        std::string propertyToken;
+        while (std::getline(ss, propertyToken, ','))
+        {
+            trim(propertyToken);
+            if (propertyToken.empty())
+                continue;
+
+            size_t assignmentIdx = propertyToken.find('=');
+            if (assignmentIdx != std::string::npos)
+            {
+                std::string key = propertyToken.substr(0, assignmentIdx);
+                std::string val = propertyToken.substr(assignmentIdx + 1);
+
+                trim(key);
+                trim(val);
+
+                if (key == "fadeIn") {
+                    seqItem.fadeInDuration = std::stof(val);
+                }
+                else if (key == "fadeOut") {
+                    seqItem.fadeOutDuration = std::stof(val);
+                }
+                else if (key == "loop") {
+                    seqItem.looped = (val == "true" || val == "1");
+                }
+            }
+        }
+
+        outItems.push_back(seqItem);
+    }
+
+
 }

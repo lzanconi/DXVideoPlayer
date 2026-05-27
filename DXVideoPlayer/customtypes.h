@@ -39,7 +39,8 @@ enum class VideoTrackState
 enum class NetworkCommandType
 {
     Stop,
-    PlayForeground
+    PlayForeground,
+    PlaySequence
 };
 
 //Struct to represent a deferred network command, containing the command type and any associated data (e.g., filename for PlayForeground)
@@ -50,4 +51,13 @@ struct DeferredCommand
     float fadeInDuration = 0.0f;
     float fadeOutDuration = 0.0f;
     bool looped = false;
+};
+
+//Struct to represent an item in a video sequence, containing the filename and fade durations
+struct SequenceItem
+{
+    std::string filename;
+    float fadeInDuration = 1.0f;
+    float fadeOutDuration = 1.0f;
+	bool looped = false;
 };
