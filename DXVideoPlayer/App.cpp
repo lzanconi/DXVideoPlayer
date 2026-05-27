@@ -102,6 +102,32 @@ void App::Run()
         if (fgActive && fgTrack) 
             fgTrack->UpdateFrame(ctx);
 
+        //Check if the track dropped out inside Phase 1 or natural / forced fade finished
+        if (fgActive && fgTrack && !fgTrack->IsActive())
+        {
+            fgActive = false;
+        }
+
+        if (!fgActive && hasPendingFGCommand)
+        {
+            hasPendingFGCommand = false; // Reset flag before calling to avoid re-entry loops
+
+            int matchIdx = -1;
+            for (size_t i = 0; i < state.sources.size(); ++i)
+            {
+                if (state.sources[i]->filename == pendingFGCommand.filename)
+                {
+                    matchIdx = static_cast<int>(i);
+                    break;
+                }
+            }
+
+            if (matchIdx != -1)
+            {
+                UpdateAndPlayFG(matchIdx, &pendingFGCommand);
+            }
+        }
+
         // =================================================================
         // PHASE 2: DIRECT3D RENDERING STAGE (Submit Draw Commands)
         // =================================================================
@@ -331,7 +357,19 @@ void App::ProcessDeferredCommands()
 
                 if (matchIdx != -1)
                 {
-                    UpdateAndPlayFG(matchIdx, &cmd);
+                    if (fgActive && fgTrack && fgTrack->IsActive())
+                    {
+                        std::cout << "[Main Thread] Foreground is active. Storing pending command and starting fade-out." << std::endl;
+                        pendingFGCommand = cmd;
+                        hasPendingFGCommand = true;
+
+                        // Queue a forced fade-out using the current foreground's settings
+                        fgTrack->StartForcedFadeOut();
+					}
+                    else
+                    {
+                        UpdateAndPlayFG(matchIdx, &cmd);
+                    }
                 }
                 else 
                 {
@@ -345,6 +383,9 @@ void App::ProcessDeferredCommands()
 
 void App::StopForegroundActivities()
 {
+    // Clear any pending video request if a global stop is called
+    hasPendingFGCommand = false;
+
     if (fgActive && fgTrack)
     {
         fgTrack->StartForcedFadeOut();
@@ -368,14 +409,28 @@ void App::UpdateAndPlayFG(int videoSourceIdx, DeferredCommand* cmd)
         state.sources[videoSourceIdx]->looped = cmd->looped;
 	}
 
+    // Force the video source alpha to 0 before doing anything else
+    state.sources[videoSourceIdx]->alpha = 0.0f; 
+
     fgTrack = std::make_unique<VideoTrack>(state.sources[videoSourceIdx]);
     fgTrack->SetBlending(true);
     fgTrack->Rewind();
-	fgTrack->Play(GetTimeStd());
-	
+    fgTrack->Play(GetTimeStd());
 
     ID3D11DeviceContext* ctx = renderer->GetContext();
     state.sources[videoSourceIdx]->GetNextFrame(ctx);
+
+    // Force an immediate calculation of the fade-in alpha using the 
+    // freshly updated track/playhead state before allowing it to render.
+    if (state.sources[videoSourceIdx]->isFadingIn)
+    {
+        state.sources[videoSourceIdx]->ComputeFadeIn();
+    }
+    else if (state.sources[videoSourceIdx]->fadeInDuration > 0.0f)
+    {
+        // Fallback safety: If state synchronization hasn't caught up, hard cap it at zero
+        state.sources[videoSourceIdx]->alpha = 0.0f;
+    }
 
     fgActive = true;
 }
