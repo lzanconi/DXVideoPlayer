@@ -42,7 +42,6 @@ private:
 
 	std::unique_ptr<VideoTrack> bgTrack;
 	std::unique_ptr<VideoTrack> fgTrack;
-	std::unique_ptr<Sequence> activeSequence = nullptr;
 
 	//Deferred command queue and mutex for thread-safe communication between the NetworkManager thread and the main thread
 	std::queue<DeferredCommand> commandQueue;
@@ -62,7 +61,6 @@ public:
 	std::vector<float> GetPositions() override;
 	double GetLastPTS() override;
 	int64_t GetBGCaptureTimeNS() override;
-	AppState& GetAppState() override;
 	void SetClientSocket(int socket) override;
 	void HandleNetworkCommand(const std::string& jsonStr) override;
 
