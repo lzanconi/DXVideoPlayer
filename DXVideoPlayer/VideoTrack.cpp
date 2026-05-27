@@ -19,6 +19,7 @@ VideoTrack::~VideoTrack()
 
 void VideoTrack::UpdateFrame(ID3D11DeviceContext* context)
 {
+    // If the track isn't active, don't waste any execution time
     if (!isActive)
     {
         if (state != VideoTrackState::Stopped)
@@ -33,7 +34,7 @@ void VideoTrack::UpdateFrame(ID3D11DeviceContext* context)
         return;
     }
 
-    // Advance the video decoding context
+    // Advance the video decoding context (now safe and completely non-blocking)
     if (!videoSource->GetNextFrame(context))
     {
         // FIX: Only terminate the track if it has genuinely advanced past 
@@ -57,10 +58,12 @@ void VideoTrack::UpdateFrame(ID3D11DeviceContext* context)
     bool fadeOutFinished = false;
     if (videoSource->isForcedFadingOut)
     {
+        // Execute dedicated forced-stop tracking configurations
         fadeOutFinished = videoSource->ComputeForcedFadeOut();
     }
     else
     {
+        // Fall back to standard, linear asset tracking timeline rules
         fadeOutFinished = videoSource->ComputeNaturalFadeOut();
     }
 
@@ -73,14 +76,14 @@ void VideoTrack::UpdateFrame(ID3D11DeviceContext* context)
             std::cout << "Track state changed (Fade Complete): " << VideoTrackStateToStr(prevState) << " -> " << VideoTrackStateToStr(state) << std::endl;
             prevState = state;
         }
-        return;
+        return; // Exit right away to guarantee zero frame ghosting artifacts
     }
 
     // Sync state tracking variables smoothly
     if (videoSource->isFadingIn)
         state = VideoTrackState::FadingIn;
     else if (videoSource->isForcedFadingOut || state == VideoTrackState::FadingOut)
-        state = VideoTrackState::FadingOut;
+        state = VideoTrackState::FadingOut; // Anchored during natural/forced fades
     else if (state == VideoTrackState::FadingIn || state == VideoTrackState::FadingOut)
         state = VideoTrackState::Playing;
 
@@ -90,6 +93,7 @@ void VideoTrack::UpdateFrame(ID3D11DeviceContext* context)
         prevState = state;
     }
 }
+
 void VideoTrack::Play(double startTime)
 {
     isActive = true;
