@@ -5,6 +5,7 @@
 #include <sstream>
 #include <iomanip>
 #include "customtypes.h"
+#include "VideoSource.h"
 
 // Utility function to convert std::string (UTF-8) to std::wstring (UTF-16)
 inline std::wstring stringToWS(const std::string& s) 
@@ -56,4 +57,19 @@ inline std::string GetFilenameFromPath(const std::string& path)
     if (lastSlash == std::string::npos)
         return path;
     return path.substr(lastSlash + 1);
+}
+
+inline int FindVideoSourceIndexByFilename(const std::string& filename, const std::vector<VideoSource*>& sources)
+{
+    int matchIdx = -1;
+    for (size_t i = 0; i < sources.size(); ++i)
+    {
+        if (sources[i]->filename == filename)
+        {
+            matchIdx = static_cast<int>(i);
+            break;
+        }
+    }
+
+	return matchIdx;
 }

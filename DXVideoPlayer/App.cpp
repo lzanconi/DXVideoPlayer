@@ -69,85 +69,124 @@ App::~App()
 		delete videoShader;
 }
 
+/*
+* MAIN LOOP 
+* 
+*/
 void App::Run()
 {
+    //Continously runs until a WM_QUIT message is received (application closed or destroyed)
     while (msg.message != WM_QUIT)
     {
+        //Listens for Windows message (e.g. keyboard input) and routes them to the WndProc method
         if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
         {
             DispatchMessage(&msg);
             continue;
         }
 
+		//Processes any pending commands that were safely enqueued by the NetworkManager thread through the HandleNetworkCommand method.
+		//This ensures that all Direct3D resource manipulations and state changes triggered by network commands are executed in the main thread
 		ProcessDeferredCommands();
-
+        
+		//DEBUG PURPOSE: 
+        //Pressing spacebar will trigger the playback of a foreground video
         if (spaceBarPressed)
         {
 			spaceBarPressed = false;
             UpdateAndPlayFG(1);
         }
 
+		//Pressing 'T' key will trigger an immediate forced fade-out of the foreground video if it is active
+        if (tKeyPressed)
+        {
+            tKeyPressed = false;
+            StopForegroundActivities();
+		}
+
         // =================================================================
-        // PHASE 1: NON-BLOCKING UPDATE STAGE (Decode & Sync Textures First)
+        // PHASE 1: NON-BLOCKING UPDATE STAGE 
+        // In PHASE 1:
+		// -Decodes the next video frame for the active tracks (background always, foreground if active)
+		// -Computes the dynamic alpha values for fade-in and fade-out effects 
+		// -Copy the decoded video frame data into Direct3D textures for rendering in PHASE 2
         // =================================================================
+
+		//Retrieves the Direct3D device context from the renderer, which is required for updating video frames and copying decoded data into GPU textures.
         ID3D11DeviceContext* ctx = renderer->GetContext();
 
+        //Updates the background video track (decoding, alpha computation, texture updates)
         if (bgTrack) 
             bgTrack->UpdateFrame(ctx);
         
+		//If a foregreound track is active, updates it as well (decoding, alpha computation, texture updates)
         if (fgActive && fgTrack) 
             fgTrack->UpdateFrame(ctx);
 
-        //Check if the track dropped out inside Phase 1 or natural / forced fade finished
+		//If the foreground track is active but has reached the end of the video or completed its fade-out, it will automatically deactivate and stop rendering
         if (fgActive && fgTrack && !fgTrack->IsActive())
         {
             fgActive = false;
         }
 
+        //VIDEO A is playing in the foreground, a new command to play VIDEO B is received.
+        //1.Video A starts a forced fade-out 
+        //2.While Video A is fading out, Video B must wait in line
+        //3.Once Video A finsihes (fgActive = false) it stops, then Video B instantly start plaing (usually with a fading-in)
+		//It detects the precise moment an old foreground video finishes (fgActive becomes false)  
+        //
+        //This condition checks if a previous foreground video has just finished (fgActive = false) and if there is a pending foreground 
+        //command waiting to be played (hasPendingFGCommand = true).
         if (!fgActive && hasPendingFGCommand)
         {
-            hasPendingFGCommand = false; // Reset flag before calling to avoid re-entry loops
-
-            int matchIdx = -1;
-            for (size_t i = 0; i < state.sources.size(); ++i)
-            {
-                if (state.sources[i]->filename == pendingFGCommand.filename)
-                {
-                    matchIdx = static_cast<int>(i);
-                    break;
-                }
-            }
+            hasPendingFGCommand = false;
+            
+			//Finds the index of the VideoSource that matches the filename specified in the pending foreground command.
+			int matchIdx = FindVideoSourceIndexByFilename(pendingFGCommand.filename, state.sources);
 
             if (matchIdx != -1)
             {
+				//If a matching VideoSource is found, it calls UpdateAndPlayFG() to start playing the new foreground video according to the parameters specified in the pending command
                 UpdateAndPlayFG(matchIdx, &pendingFGCommand);
             }
         }
 
         // =================================================================
-        // PHASE 2: DIRECT3D RENDERING STAGE (Submit Draw Commands)
+        // PHASE 2: DIRECT3D RENDERING STAGE 
+		// 1.Retrieve the current dimensions of the application window's client 
+        //   area to ensure that the video content is rendered correctly 
+        // 2.Prepares the Direct3D rendering context and clears the back buffer to solid black
+        // 3.Finally, renders the decoded textures for background layer and foreground layer (if active)
         // =================================================================
+        
+        //Get current window dimensions
         RECT rc; 
         GetClientRect(window, &rc);
         float w = (float)(rc.right - rc.left);
         float h = (float)(rc.bottom - rc.top);
 
+        //Prepare Direct3D rendering context
 		renderer->BeginFrame();
-        // Background layer draws first
+
+        //Render background layer
         if (bgTrack) bgTrack->Render(renderer, videoShader, w, h);
 
+		//If foreground layer is active, render it on top of the background layer
         if (fgActive)
         {
-            // If the foreground track finished playback inside Phase 1, flag active rendering loop to false
+			//If the foreground track has become inactive (e.g., video ended or finished fading out) during this frame, it will stop rendering and reset fgActive to false
             if (!fgTrack->IsActive())
             {
                 fgActive = false;
             }
             else
             {
+                //Render foreground layer
                 fgTrack->Render(renderer, videoShader, w, h);
             }
         }
+
+		//Swap chains and present the rendered frame to the screen
         renderer->EndFrame();
 	}
 }
@@ -346,15 +385,7 @@ void App::ProcessDeferredCommands()
                 std::cout << "[Main Thread] Processing deferred 'play_foreground' action: " << cmd.filename << std::endl;
 
                 //Search for the video source index that matches the filename specified in the command
-                int matchIdx = -1;
-                for (size_t i = 0; i < state.sources.size(); ++i)
-                {
-                    if (state.sources[i]->filename == cmd.filename)
-                    {
-                        matchIdx = static_cast<int>(i);
-                        break;
-                    }
-                }
+				int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
 
                 if (matchIdx != -1)
                 {
@@ -475,7 +506,7 @@ LRESULT App::HandleMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         ToggleFullscreen(hwnd);
 
     if (msg == WM_KEYDOWN && wp == 'T')
-		StopForegroundActivities();
+		tKeyPressed = true;
 
     if (msg == WM_SIZE && renderer->GetSwapChain()) 
         renderer->Resize(0, 0);
