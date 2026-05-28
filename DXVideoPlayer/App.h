@@ -44,8 +44,13 @@ private:
 	std::unique_ptr<VideoTrack> bgTrack;
 	std::unique_ptr<VideoTrack> fgTrack;
 
+	//Single foreground video pending command
 	bool hasPendingFGCommand = false;
 	DeferredCommand pendingFGCommand;
+
+	//Sequence pending command
+	bool hasPendingSeqCommand = false;
+	DeferredCommand pendingSeqCommand;
 
 	//Deferred command queue and mutex for thread-safe communication between the NetworkManager thread and the main thread
 	std::queue<DeferredCommand> commandQueue;

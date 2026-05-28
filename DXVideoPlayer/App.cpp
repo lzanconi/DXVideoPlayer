@@ -135,12 +135,13 @@ void App::Run()
 		//If the foreground track is active but has reached the end of the video or completed its fade-out, it will automatically deactivate and stop rendering
         if (fgActive && fgTrack && !fgTrack->IsActive())
         {
-            fgActive = false;
+            fgActive = false; // Layer is now clear
 
-            if (activeSequence && activeSequence->isActive)
+            // Advance to next video item ONLY if we aren't waiting to start a whole new sequence
+            if (!hasPendingSeqCommand && activeSequence && activeSequence->isActive)
             {
-				activeSequence->AdvanceSequence();
-			}
+                activeSequence->AdvanceSequence();
+            }
         }
 
         //VIDEO A is playing in the foreground, a new command to play VIDEO B is received.
@@ -154,14 +155,22 @@ void App::Run()
         if (!fgActive && hasPendingFGCommand)
         {
             hasPendingFGCommand = false;
-            
-			//Finds the index of the VideoSource that matches the filename specified in the pending foreground command.
-			int matchIdx = FindVideoSourceIndexByFilename(pendingFGCommand.filename, state.sources);
-
+            int matchIdx = FindVideoSourceIndexByFilename(pendingFGCommand.filename, state.sources);
             if (matchIdx != -1)
             {
-				//If a matching VideoSource is found, it calls UpdateAndPlayFG() to start playing the new foreground video according to the parameters specified in the pending command
                 UpdateAndPlayFG(matchIdx, &pendingFGCommand);
+            }
+        }
+        
+        if (!fgActive && hasPendingSeqCommand)
+        {
+            hasPendingSeqCommand = false; // Clear flag
+            std::cout << "[Main Thread] Foreground track cleared perfectly. Booting pending sequence now." << std::endl;
+
+            if (activeSequence)
+            {
+                activeSequence->Stop();
+                activeSequence->Play(pendingSeqCommand.looped);
             }
         }
 
@@ -406,16 +415,12 @@ void App::InitVideoTracks()
 
 void App::ProcessDeferredCommands()
 {
-    //To minimize the time spent holding the queue mutex, we swap the main command queue with a local queue and process 
-    //the commands outside of the locked section.
     std::queue<DeferredCommand> localQueue;
 
-    //Lock the queue mutex to safely access and swap the command queue
     std::lock_guard<std::mutex> lock(queueMutex);
     if (commandQueue.empty())
         return;
 
-    //Swap the main command queue with an empty local queue to quickly transfer ownership of the pending commands
     std::swap(commandQueue, localQueue);
 
     while (!localQueue.empty())
@@ -423,59 +428,69 @@ void App::ProcessDeferredCommands()
         DeferredCommand cmd = localQueue.front();
         localQueue.pop();
 
-        //Process the command based on its type, executing the corresponding actions in the main thread's context
         switch (cmd.type)
         {
-            //STOP COMMAND: 
-            //Triggers an immediate fade-out of any active foreground video and halts any ongoing sequences
-            case NetworkCommandType::Stop:
+        case NetworkCommandType::Stop:
+        {
+            std::cout << ">>> [Main Thread] Processing deferred 'stop' action." << std::endl;
+            StopForegroundActivities();
+            break;
+        }
+
+        case NetworkCommandType::PlayForeground:
+        {
+            std::cout << "[Main Thread] Processing deferred 'play_foreground' action: " << cmd.filename << std::endl;
+            int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
+
+            if (matchIdx != -1)
             {
-                std::cout << ">>> [Main Thread] Processing deferred 'stop' action." << std::endl;
-                StopForegroundActivities();
-                
-                break;
-            }
-
-            case NetworkCommandType::PlayForeground:
-            {
-                std::cout << "[Main Thread] Processing deferred 'play_foreground' action: " << cmd.filename << std::endl;
-
-                //Search for the video source index that matches the filename specified in the command
-				int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
-
-                if (matchIdx != -1)
+                if (fgActive && fgTrack && fgTrack->IsActive())
                 {
-                    if (fgActive && fgTrack && fgTrack->IsActive())
-                    {
-                        std::cout << "[Main Thread] Foreground is active. Storing pending command and starting fade-out." << std::endl;
-                        pendingFGCommand = cmd;
-                        hasPendingFGCommand = true;
-
-                        // Queue a forced fade-out using the current foreground's settings
-                        fgTrack->StartForcedFadeOut();
-					}
-                    else
-                    {
-                        UpdateAndPlayFG(matchIdx, &cmd);
-                    }
+                    pendingFGCommand = cmd;
+                    hasPendingFGCommand = true;
+                    fgTrack->StartForcedFadeOut();
                 }
-                else 
+                else
                 {
-                    std::cerr << "Deferred command error: No video found with filename " << cmd.filename << std::endl;
-                    SendTCPMessage("{\"status\":\"error\",\"message\":\"'play_foreground' no video found with filename " + cmd.filename + "\"}");
-				}
-
-                break;
-            }
-
-            case NetworkCommandType::PlaySequence:
-            {
-                std::cout << "[Main Thread] Processing deferred 'play_sequence' action: " << cmd.filename << std::endl;
-                if (activeSequence && !activeSequence->isActive)
-                {
-					activeSequence->Play(cmd.looped);
+                    UpdateAndPlayFG(matchIdx, &cmd);
                 }
             }
+            break;
+        }
+
+        case NetworkCommandType::PlaySequence:
+        {
+            std::cout << "[Main Thread] Processing deferred 'play_sequence' action: " << cmd.filename << std::endl;
+
+            // Check if a foreground track is actively displaying
+            if (fgActive && fgTrack && fgTrack->IsActive())
+            {
+                std::cout << "[Main Thread] Foreground is active. Storing pending sequence and forcing fade out." << std::endl;
+
+                pendingSeqCommand = cmd;
+                hasPendingSeqCommand = true;
+
+                // Stop any existing sequence logic running without clearing the pending flag
+                if (activeSequence && activeSequence->isActive)
+                {
+                    activeSequence->Stop();
+                }
+
+                // Force ONLY the current video track to fade out
+                fgTrack->StartForcedFadeOut();
+            }
+            else
+            {
+                // Clean start: nothing is occupying the foreground track layer
+                hasPendingSeqCommand = false;
+                if (activeSequence)
+                {
+                    activeSequence->Stop();
+                    activeSequence->Play(cmd.looped);
+                }
+            }
+            break;
+        }
         }
     }
 }
@@ -484,6 +499,7 @@ void App::StopForegroundActivities()
 {
     // Clear any pending video request if a global stop is called
     hasPendingFGCommand = false;
+	hasPendingSeqCommand = false;
 
     if (activeSequence && activeSequence->isActive)
     {
@@ -501,39 +517,38 @@ void App::UpdateAndPlayFG(int videoSourceIdx, DeferredCommand* cmd)
 {
     if (videoSourceIdx < 0 || videoSourceIdx >= static_cast<int>(state.sources.size()))
     {
-		std::cerr << "Invalid video source index: " << videoSourceIdx << std::endl;
+        std::cerr << "Invalid video source index: " << videoSourceIdx << std::endl;
         return;
     }
 
     std::cout << "[Main Thread] Swapping foreground video to index: " << videoSourceIdx << " (" << state.sources[videoSourceIdx]->filename << ")" << std::endl;
-    
+
     if (cmd)
     {
         state.sources[videoSourceIdx]->fadeInDuration = cmd->fadeInDuration;
         state.sources[videoSourceIdx]->fadeOutDuration = cmd->fadeOutDuration;
         state.sources[videoSourceIdx]->looped = cmd->looped;
-	}
+    }
 
-    // Force the video source alpha to 0 before doing anything else
-    state.sources[videoSourceIdx]->alpha = 0.0f; 
+    state.sources[videoSourceIdx]->alpha = 0.0f;
 
     fgTrack = std::make_unique<VideoTrack>(state.sources[videoSourceIdx]);
     fgTrack->SetBlending(true);
     fgTrack->Rewind();
     fgTrack->Play(GetTimeStd());
 
+    // Force wrapper synchronization status explicitly
+    fgTrack->SetActive(true);
+
     ID3D11DeviceContext* ctx = renderer->GetContext();
     state.sources[videoSourceIdx]->GetNextFrame(ctx);
 
-    // Force an immediate calculation of the fade-in alpha using the 
-    // freshly updated track/playhead state before allowing it to render.
     if (state.sources[videoSourceIdx]->isFadingIn)
     {
         state.sources[videoSourceIdx]->ComputeFadeIn();
     }
     else if (state.sources[videoSourceIdx]->fadeInDuration > 0.0f)
     {
-        // Fallback safety: If state synchronization hasn't caught up, hard cap it at zero
         state.sources[videoSourceIdx]->alpha = 0.0f;
     }
 

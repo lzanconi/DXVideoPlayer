@@ -10,7 +10,7 @@ void Sequence::Play(bool shouldLoop)
 {
 	if (items.empty())
 	{
-		std::cerr << "[Sequence] No items to play in sequence: " << name << std::endl;	
+		std::cerr << "[Sequence] No items to play in sequence: " << name << std::endl;
 		return;
 	}
 
@@ -18,7 +18,7 @@ void Sequence::Play(bool shouldLoop)
 	isActive = true;
 	currentIndex = 0;
 	looped = shouldLoop;
-	
+	isFirstRun = true; // Ensure this is explicitly set to true on start
 
 	DeferredCommand cmd;
 	cmd.type = NetworkCommandType::PlayForeground;
@@ -49,7 +49,7 @@ void Sequence::AdvanceSequence()
 	{
 		if (looped)
 		{
-			std::cout << "[Sequence] Looping sequence: " << name << std::endl;	
+			std::cout << ">>> [Sequence] Looping sequence: " << name << std::endl;	
 			currentIndex = 0;
 			isFirstRun = false;
 		}
