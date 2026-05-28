@@ -138,7 +138,7 @@ void App::Run()
             fgActive = false; // Layer is now clear
 
             // Advance to next video item ONLY if we aren't waiting to start a whole new sequence
-            if (!hasPendingSeqCommand && activeSequence && activeSequence->isActive)
+            if (!hasPendingFGCommand && !hasPendingSeqCommand && activeSequence && activeSequence->isActive)
             {
                 activeSequence->AdvanceSequence();
             }
@@ -158,14 +158,19 @@ void App::Run()
             int matchIdx = FindVideoSourceIndexByFilename(pendingFGCommand.filename, state.sources);
             if (matchIdx != -1)
             {
+                // Turn off the sequence processing state since a single video is taking over
+                if (activeSequence && activeSequence->isActive)
+                {
+                    activeSequence->Stop();
+                }
                 UpdateAndPlayFG(matchIdx, &pendingFGCommand);
             }
         }
-        
+
         if (!fgActive && hasPendingSeqCommand)
         {
-            hasPendingSeqCommand = false; // Clear flag
-            std::cout << "[Main Thread] Foreground track cleared perfectly. Booting pending sequence now." << std::endl;
+            hasPendingSeqCommand = false;
+            std::cerr << "[Main Thread] Foreground track cleared perfectly. Booting pending sequence now." << std::endl;
 
             if (activeSequence)
             {
@@ -448,10 +453,21 @@ void App::ProcessDeferredCommands()
                 {
                     pendingFGCommand = cmd;
                     hasPendingFGCommand = true;
+
+                    // ADDED: Shut down sequence logic immediately so it doesn't try to auto-advance
+                    if (activeSequence && activeSequence->isActive)
+                    {
+                        activeSequence->Stop();
+                    }
+
                     fgTrack->StartForcedFadeOut();
                 }
                 else
                 {
+                    if (activeSequence && activeSequence->isActive)
+                    {
+                        activeSequence->Stop();
+                    }
                     UpdateAndPlayFG(matchIdx, &cmd);
                 }
             }
