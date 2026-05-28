@@ -12,6 +12,7 @@ class VideoSource;
 class ContentManager;
 class DXShader;
 class NetworkManager;
+class Sequence;
 struct AVBufferRef;
 struct AVPacket;
 struct AVFrame;
@@ -52,6 +53,8 @@ private:
 	//Mutex to protect access to the command queue when enqueuing commands from the NetworkManager thread and processing them in the main thread
 	std::mutex queueMutex;
 
+	Sequence* activeSequence = nullptr;	
+
 public:
 	App(int width, int height);
 	~App();
@@ -67,6 +70,7 @@ public:
 	AppState& GetAppState() override;
 	void SetClientSocket(int socket) override;
 	void HandleNetworkCommand(const std::string& jsonStr) override;
+	void TriggerSequenceItem(const DeferredCommand& cmd) override;
 
 private:
 	void LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context);

@@ -17,4 +17,5 @@ public:
 	virtual AppState& GetAppState() = 0;
     virtual void SetClientSocket(int socket) = 0;
     virtual void HandleNetworkCommand(const std::string& jsonStr) = 0;
+	virtual void TriggerSequenceItem(const DeferredCommand& cmd) = 0;
 };

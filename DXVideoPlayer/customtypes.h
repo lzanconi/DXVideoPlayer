@@ -5,10 +5,12 @@
 class VideoSource;
 class IRenderer;
 class NetworkManager;
+class Sequence;
 
 struct AppState
 {
     std::vector<VideoSource*> sources;
+	std::vector<Sequence*> sequences;
     IRenderer* renderer = nullptr;
     NetworkManager* networkMgr = nullptr;
  };

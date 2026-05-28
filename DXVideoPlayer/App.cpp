@@ -8,6 +8,7 @@
 #include "ContentManager.h"
 #include <iostream>
 #include <json.hpp>
+#include "Sequence.h"
 
 using json = nlohmann::json;
 
@@ -49,6 +50,11 @@ App::App(int width, int height)
 
     state.networkMgr = new NetworkManager("127.0.0.1", 5555, this);
 	state.networkMgr->Start();
+
+    if (!state.sequences.empty())
+    {
+        activeSequence = state.sequences[0];
+	}
 }
 
 App::~App()
@@ -61,6 +67,9 @@ App::~App()
 
     for (auto source : state.sources)
         delete source;
+
+    for (auto sequence : state.sequences)
+		delete sequence;
 
     if (renderer)
         delete renderer;
@@ -127,6 +136,11 @@ void App::Run()
         if (fgActive && fgTrack && !fgTrack->IsActive())
         {
             fgActive = false;
+
+            if (activeSequence && activeSequence->isActive)
+            {
+				activeSequence->AdvanceSequence();
+			}
         }
 
         //VIDEO A is playing in the foreground, a new command to play VIDEO B is received.
@@ -293,6 +307,35 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
             responseMessage = "{\"status\":\"acknowledged\",\"command\":\"play_background\"}";
         }
 
+		//PLAY SEQUENCE COMMAND:
+        if (j.contains("play_sequence"))
+        {
+            cmd.type = NetworkCommandType::PlaySequence;
+            cmd.filename = j["play_sequence"].get<std::string>();
+
+            if (j.contains("fade_in_seconds"))
+            {
+                cmd.fadeInDuration = j["fade_in_seconds"].get<float>();
+            }
+
+            if (j.contains("fade_out_seconds"))
+            {
+                cmd.fadeOutDuration = j["fade_out_seconds"].get<float>();
+            }
+
+            if (j.contains("loop"))
+            {
+                cmd.looped = j["loop"].get<bool>();
+            }
+
+            //Safely enqueue the command into the shared command queue with proper locking to ensure thread safety
+            std::lock_guard<std::mutex> lock(queueMutex);
+            commandQueue.push(cmd);
+
+            commandProcessed = true;
+            responseMessage = "{\"status\":\"acknowledged\",\"command\":\"play_sequence\"}";
+        }
+
         //If the command was successfully parsed and recognized, send an acknowledgment response back to the client
         if (clientSocket > 0 && commandProcessed)
         {
@@ -305,6 +348,19 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
 	}
 
 
+}
+
+void App::TriggerSequenceItem(const DeferredCommand& cmd)
+{
+	int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
+    if (matchIdx != -1)
+    {
+        UpdateAndPlayFG(matchIdx, const_cast<DeferredCommand*>(&cmd));
+    }
+    else
+    {
+        std::cerr << "[App] Sequence error: Video file not found: " << cmd.filename << std::endl;
+    }
 }
 
 void App::LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context)
@@ -408,6 +464,17 @@ void App::ProcessDeferredCommands()
                     std::cerr << "Deferred command error: No video found with filename " << cmd.filename << std::endl;
                     SendTCPMessage("{\"status\":\"error\",\"message\":\"'play_foreground' no video found with filename " + cmd.filename + "\"}");
 				}
+
+                break;
+            }
+
+            case NetworkCommandType::PlaySequence:
+            {
+                std::cout << "[Main Thread] Processing deferred 'play_sequence' action: " << cmd.filename << std::endl;
+                if (activeSequence && !activeSequence->isActive)
+                {
+					activeSequence->Play(cmd.looped);
+                }
             }
         }
     }
@@ -417,6 +484,12 @@ void App::StopForegroundActivities()
 {
     // Clear any pending video request if a global stop is called
     hasPendingFGCommand = false;
+
+    if (activeSequence && activeSequence->isActive)
+    {
+        std::cout << "[Main Thread] Stopping active sequence: " << activeSequence->name << std::endl;
+        activeSequence->Stop();
+	}
 
     if (fgActive && fgTrack)
     {
