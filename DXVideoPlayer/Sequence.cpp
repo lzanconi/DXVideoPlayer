@@ -65,12 +65,13 @@ void Sequence::AdvanceSequence()
 	std::cout << "[Sequence] Advancing to next item in sequence: " << name << " (Index: " << currentIndex << ")" << std::endl;
 
 	float appliedFadeIn = isFirstRun ? items[currentIndex].fadeInDuration : 0.0f;
+	float appliedFadeOut = looped ? 0.0f : items[currentIndex].fadeOutDuration;
 
 	DeferredCommand cmd;
 	cmd.type = NetworkCommandType::PlayForeground;
 	cmd.filename = items[currentIndex].filename;
 	cmd.fadeInDuration = appliedFadeIn;
-	cmd.fadeOutDuration = items[currentIndex].fadeOutDuration;
+	cmd.fadeOutDuration = appliedFadeOut;
 	cmd.looped = false;
 
 	appInterface->TriggerSequenceItem(cmd);
