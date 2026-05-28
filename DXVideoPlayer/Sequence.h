@@ -9,10 +9,10 @@ class Sequence
 {
 private:
 	IApp* appInterface;
-	std::vector<SequenceItem> items;
 
 public:
 	std::string name;
+	std::vector<SequenceItem> items;
 	int currentIndex = 0;
 	bool isActive = false;
 	bool looped = false;

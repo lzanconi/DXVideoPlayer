@@ -501,6 +501,8 @@ void App::ProcessDeferredCommands()
                 hasPendingSeqCommand = false;
                 if (activeSequence)
                 {
+					activeSequence->items[0].fadeInDuration = cmd.fadeInDuration;
+					activeSequence->items[activeSequence->items.size() - 1].fadeOutDuration = cmd.fadeOutDuration;
                     activeSequence->Stop();
                     activeSequence->Play(cmd.looped);
                 }

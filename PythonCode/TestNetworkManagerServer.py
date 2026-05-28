@@ -61,6 +61,7 @@ class JSONSenderApp:
 
         self.filename_seq_var = tk.StringVar(value=self.sequence_file_list[0] if self.sequence_file_list else "")
         self.fade_in_seq_var = tk.StringVar(value="1.0")
+        self.fade_out_seq_var = tk.StringVar(value="1.0")
         self.loop_seq_var = tk.BooleanVar(value=False)
 
         self.feedback_var = tk.StringVar(value="Ready.")
@@ -172,10 +173,21 @@ class JSONSenderApp:
         seq_frame.pack(padx=10, pady=5, fill="x")
         tk.Label(seq_frame, text="Filename:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
         self._create_filename_dropdown(seq_frame, 0, 1, self.filename_seq_var, self.file_list)
+        
+        # Fade In
         tk.Label(seq_frame, text="Fade In (s):").grid(row=1, column=0, padx=5, pady=5, sticky="w")
         tk.Entry(seq_frame, textvariable=self.fade_in_seq_var, width=10).grid(row=1, column=1, padx=5, pady=5, sticky="w")
-        tk.Checkbutton(seq_frame, text="Loop", variable=self.loop_seq_var).grid(row=1, column=2, padx=10, pady=5, sticky="w")
-        tk.Button(seq_frame, text="Send Sequence", command=self._send_play_sequence, width=22).grid(row=2, column=0, columnspan=3, pady=5)
+
+        # Fade Out
+        tk.Label(seq_frame, text="Fade Out (s):").grid(row=1, column=2, padx=5, pady=5, sticky="w")
+        tk.Entry(seq_frame, textvariable=self.fade_out_seq_var, width=10).grid(row=1, column=3, padx=5, pady=5, sticky="w")
+
+        # Loop Checkbox
+        tk.Checkbutton(seq_frame, text="Loop", variable=self.loop_seq_var).grid(row=2, column=0, padx=10, pady=5, sticky="w")
+        
+        # Send Button
+        tk.Button(seq_frame, text="Send Sequence", 
+                  command=self._send_play_sequence, width=22).grid(row=2, column=0, columnspan=4, pady=10)
 
         # Terminal display box for incoming server messages
         terminal_frame = tk.LabelFrame(self.master, text="Server Responses (Incoming Data)", padx=10, pady=5)
@@ -365,10 +377,11 @@ class JSONSenderApp:
     def _send_play_sequence(self):
         filename = self.filename_seq_var.get()
         fade_in = self._validate_float_input(self.fade_in_seq_var, "Sequence Fade In")
-        if fade_in is None: return
+        fade_out = self._validate_float_input(self.fade_out_seq_var, "Sequence Fade Out")
+        if fade_in is None or fade_out is None: return
 
         message_dict = {
-            "play_sequence": filename, "fade_in_seconds": fade_in, "loop": self.loop_seq_var.get() 
+            "play_sequence": filename, "fade_in_seconds": fade_in, "fade_out_seconds": fade_out, "loop": self.loop_seq_var.get() 
         }
         self._send_json_via_socket(message_dict)
 
