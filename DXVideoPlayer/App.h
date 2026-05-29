@@ -27,6 +27,7 @@ private:
 	bool spaceBarPressed = false;
 	bool tKeyPressed = false;
 	bool fgActive = false;
+	bool coverActive = false;
 	int clientSocket = -1;	
 	ContentManager* contentMgr = nullptr;
 	IRenderer* renderer = nullptr;
@@ -43,6 +44,7 @@ private:
 
 	std::unique_ptr<VideoTrack> bgTrack;
 	std::unique_ptr<VideoTrack> fgTrack;
+	std::unique_ptr<VideoTrack> coverTrack;
 
 	//Single foreground video pending command
 	bool hasPendingFGCommand = false;
@@ -51,6 +53,10 @@ private:
 	//Sequence pending command
 	bool hasPendingSeqCommand = false;
 	DeferredCommand pendingSeqCommand;
+
+	//Cover pending command
+	bool hasPendingCoverCommand = false;
+	DeferredCommand pendingCoverCommand;
 
 	//Deferred command queue and mutex for thread-safe communication between the NetworkManager thread and the main thread
 	std::queue<DeferredCommand> commandQueue;
@@ -83,6 +89,7 @@ private:
 	void ProcessDeferredCommands();
 	void StopForegroundActivities();
 	void UpdateAndPlayFG(int videoSourceIdx, DeferredCommand* cmd = nullptr);
+	void UpdateAndPlayCover(int videoSourceIdx, DeferredCommand* cmd = nullptr);
 	static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 	LRESULT HandleMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 	void ToggleFullscreen(HWND hwnd);

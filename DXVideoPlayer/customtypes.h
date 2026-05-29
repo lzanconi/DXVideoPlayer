@@ -42,7 +42,8 @@ enum class NetworkCommandType
 {
     Stop,
     PlayForeground,
-    PlaySequence
+    PlaySequence,
+    PlayCover
 };
 
 //Struct to represent a deferred network command, containing the command type and any associated data (e.g., filename for PlayForeground)

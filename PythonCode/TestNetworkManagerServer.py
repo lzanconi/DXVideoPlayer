@@ -18,15 +18,15 @@ class JSONSenderApp:
     def __init__(self, master):
         self.master = master
         master.title("JSON Command Sender (Two-Way Windows Mode)")
-        master.geometry("600x850") # Tall enough for the incoming message terminal
+        master.geometry("600x950") # Slightly increased height to accommodate the Play Cover frame safely
 
         # Load file list for FG/BG commands
         self.file_list = self._load_file_list()
         self.sequence_file_list = ["sequence1.txt", "sequence2.txt"]
 
         # Connection State
-        self.sock = None 
-        self.connected = False 
+        self.sock = None
+        self.connected = False
 
         ids = [
             ("Movement_1.mp4", 0), ("Movement_2.mp4", 1), ("Movement_3.mp4", 2),
@@ -45,13 +45,13 @@ class JSONSenderApp:
         self.fade_in_bg_var = tk.StringVar(value="0.0")
         self.fade_out_bg_var = tk.StringVar(value="0.0")
         self.fg_fade_out_time_var = tk.StringVar(value="2.0")
-        self.loop_bg_var = tk.BooleanVar(value=False) 
+        self.loop_bg_var = tk.BooleanVar(value=False)
 
         self.filename_fg_var = tk.StringVar(value=default_filename)
         self.fade_in_fg_var = tk.StringVar(value="0.0")
         self.fade_out_fg_var = tk.StringVar(value="0.0")
-        self.fg_fade_out_time_var = tk.StringVar(value="2.0")
-        self.loop_fg_var = tk.BooleanVar(value=False) 
+        self.fg_fade_out_time_var = tk.StringVar(value="2.0") # Shared/redefined variable from your source
+        self.loop_fg_var = tk.BooleanVar(value=False)
         
         self.filename_trans_var = tk.StringVar(value=default_filename)
         self.fade_in_trans_var = tk.StringVar(value="0.0")
@@ -63,6 +63,12 @@ class JSONSenderApp:
         self.fade_in_seq_var = tk.StringVar(value="1.0")
         self.fade_out_seq_var = tk.StringVar(value="1.0")
         self.loop_seq_var = tk.BooleanVar(value=False)
+
+        # --- NEW: Cover Command Variables ---
+        self.filename_cover_var = tk.StringVar(value=default_filename)
+        self.fade_in_cover_var = tk.StringVar(value="0.0")
+        self.fade_out_cover_var = tk.StringVar(value="0.0")
+        self.loop_cover_var = tk.BooleanVar(value=False)
 
         self.feedback_var = tk.StringVar(value="Ready.")
 
@@ -86,7 +92,7 @@ class JSONSenderApp:
             tk.Entry(parent_frame, textvariable=textvariable, width=30, state='readonly').grid(row=row, column=col, columnspan=3, padx=5, pady=5, sticky="ew")
         else:
             menu = tk.OptionMenu(parent_frame, textvariable, *file_source)
-            menu.config(width=28) 
+            menu.config(width=28)
             menu.grid(row=row, column=col, columnspan=3, padx=5, pady=5, sticky="ew")
 
     def _create_widgets(self):
@@ -121,13 +127,13 @@ class JSONSenderApp:
         bg_frame = tk.LabelFrame(commands_frame, text="Play Background", padx=5, pady=5)
         bg_frame.pack(padx=10, pady=5, fill="x")
         tk.Label(bg_frame, text="Filename:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self._create_filename_dropdown(bg_frame, 0, 1, self.filename_bg_var, self.file_list) 
+        self._create_filename_dropdown(bg_frame, 0, 1, self.filename_bg_var, self.file_list)
         tk.Label(bg_frame, text="Fade In (s):").grid(row=1, column=0, padx=5, pady=5, sticky="w")
         tk.Entry(bg_frame, textvariable=self.fade_in_bg_var, width=10).grid(row=1, column=1, padx=5, pady=5, sticky="w")
         tk.Label(bg_frame, text="Fade Out (s):").grid(row=1, column=2, padx=5, pady=5, sticky="w")
         tk.Entry(bg_frame, textvariable=self.fade_out_bg_var, width=10).grid(row=1, column=3, padx=5, pady=5, sticky="w")
         tk.Label(bg_frame, text="FG Fade Out (s):").grid(row=2, column=0, padx=5, pady=5, sticky="w")
-        tk.Entry(bg_frame, textvariable=self.fg_fade_out_time_var, width=10).grid(row=2, column=1, padx=5, pady=5, sticky="w") 
+        tk.Entry(bg_frame, textvariable=self.fg_fade_out_time_var, width=10).grid(row=2, column=1, padx=5, pady=5, sticky="w")
         tk.Checkbutton(bg_frame, text="Loop", variable=self.loop_bg_var).grid(row=2, column=2, padx=10, pady=5, sticky="w")
         tk.Button(bg_frame, text="Send BG Command", command=self._send_play_background, width=22).grid(row=3, column=0, columnspan=5, pady=5)
 
@@ -137,7 +143,7 @@ class JSONSenderApp:
         
         # Filename Dropdown
         tk.Label(fg_frame, text="Filename:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self._create_filename_dropdown(fg_frame, 0, 1, self.filename_fg_var, self.file_list) 
+        self._create_filename_dropdown(fg_frame, 0, 1, self.filename_fg_var, self.file_list)
 
         # Fade In
         tk.Label(fg_frame, text="Fade In (s):").grid(row=1, column=0, padx=5, pady=5, sticky="w")
@@ -152,21 +158,30 @@ class JSONSenderApp:
         
         # Send Button
         tk.Button(fg_frame, text="Send FG Command", 
-                  command=self._send_play_foreground, width=18).grid(row=2, column=0, columnspan=4, pady=10)
+                  command=self._send_play_foreground, width=18).grid(row=2, column=1, columnspan=3, pady=10)
 
-        # Transition Frame
-        # trans_frame = tk.LabelFrame(commands_frame, text="TRANSITION TO", padx=5, pady=5)
-        # trans_frame.pack(padx=10, pady=5, fill="x")
-        # tk.Label(trans_frame, text="Filename:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        # self._create_filename_dropdown(trans_frame, 0, 1, self.filename_trans_var, self.file_list) 
-        # tk.Label(trans_frame, text="Fade In (s):").grid(row=1, column=0, padx=5, pady=5, sticky="w")
-        # tk.Entry(trans_frame, textvariable=self.fade_in_trans_var, width=10).grid(row=1, column=1, padx=5, pady=5, sticky="w")
-        # tk.Label(trans_frame, text="Fade Out (s):").grid(row=1, column=2, padx=5, pady=5, sticky="w")
-        # tk.Entry(trans_frame, textvariable=self.fade_out_trans_var, width=10).grid(row=1, column=3, padx=5, pady=5, sticky="w")
-        # tk.Label(trans_frame, text="FG Fade Out (s):").grid(row=2, column=0, padx=5, pady=5, sticky="w")
-        # tk.Entry(trans_frame, textvariable=self.trans_fg_fade_out_time_var, width=10).grid(row=2, column=1, padx=5, pady=5, sticky="w") 
-        # tk.Checkbutton(trans_frame, text="Loop", variable=self.loop_trans_var).grid(row=2, column=2, padx=10, pady=5, sticky="w")
-        # tk.Button(trans_frame, text="Send Transition Command", command=self._send_transition_to, width=22).grid(row=3, column=0, columnspan=5, pady=5)
+        # --- NEW: Play Cover Frame ---
+        cover_frame = tk.LabelFrame(commands_frame, text="Play Cover", padx=5, pady=5)
+        cover_frame.pack(padx=10, pady=10, fill="x")
+        
+        # Filename Dropdown
+        tk.Label(cover_frame, text="Filename:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        self._create_filename_dropdown(cover_frame, 0, 1, self.filename_cover_var, self.file_list) 
+
+        # Fade In
+        tk.Label(cover_frame, text="Fade In (s):").grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        tk.Entry(cover_frame, textvariable=self.fade_in_cover_var, width=10).grid(row=1, column=1, padx=5, pady=5, sticky="w")
+
+        # Fade Out
+        tk.Label(cover_frame, text="Fade Out (s):").grid(row=1, column=2, padx=5, pady=5, sticky="w")
+        tk.Entry(cover_frame, textvariable=self.fade_out_cover_var, width=10).grid(row=1, column=3, padx=5, pady=5, sticky="w")
+
+        # Loop Checkbox
+        tk.Checkbutton(cover_frame, text="Loop", variable=self.loop_cover_var).grid(row=2, column=0, padx=10, pady=5, sticky="w")
+        
+        # Send Button
+        tk.Button(cover_frame, text="Send Cover Command", 
+                  command=self._send_play_cover, width=18).grid(row=2, column=1, columnspan=3, pady=10)
 
         # Play Sequence
         seq_frame = tk.LabelFrame(commands_frame, text="Play Sequence", padx=5, pady=5)
@@ -187,7 +202,7 @@ class JSONSenderApp:
         
         # Send Button
         tk.Button(seq_frame, text="Send Sequence", 
-                  command=self._send_play_sequence, width=22).grid(row=2, column=0, columnspan=4, pady=10)
+                  command=self._send_play_sequence, width=22).grid(row=2, column=1, columnspan=3, pady=10)
 
         # Terminal display box for incoming server messages
         terminal_frame = tk.LabelFrame(self.master, text="Server Responses (Incoming Data)", padx=10, pady=5)
@@ -358,6 +373,22 @@ class JSONSenderApp:
             "fade_in_seconds": fade_in,
             "fade_out_seconds": fade_out,
             "loop": self.loop_fg_var.get()
+        }
+        self._send_json_via_socket(message_dict)
+
+    # --- NEW: Play Cover Callback ---
+    def _send_play_cover(self):
+        print("DEBUG: Preparing to send Play Cover command...")
+        filename = self.filename_cover_var.get()
+        fade_in = self._validate_float_input(self.fade_in_cover_var, "Cover Fade In")
+        fade_out = self._validate_float_input(self.fade_out_cover_var, "Cover Fade Out")
+        if fade_in is None or fade_out is None: return
+        
+        message_dict = {
+            "play_cover": filename,
+            "fade_in_seconds": fade_in,
+            "fade_out_seconds": fade_out,
+            "loop": self.loop_cover_var.get()
         }
         self._send_json_via_socket(message_dict)
     
