@@ -27,6 +27,7 @@
     <ClCompile Include="IRenderer.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="NetworkManager.cpp" />
+    <ClCompile Include="PlaybackManager.cpp" />
     <ClCompile Include="Sequence.cpp" />
     <ClCompile Include="VideoSource.cpp" />
     <ClCompile Include="VideoTrack.cpp" />
@@ -40,6 +41,7 @@
     <ClInclude Include="IApp.h" />
     <ClInclude Include="IRenderer.h" />
     <ClInclude Include="NetworkManager.h" />
+    <ClInclude Include="PlaybackManager.h" />
     <ClInclude Include="Sequence.h" />
     <ClInclude Include="utils.h" />
     <ClInclude Include="VideoSource.h" />
