@@ -156,7 +156,7 @@ void PlaybackManager::HandlePendingForegroundCmd(AppState& state)
 		{
 			// Instantly instantiate Video B and reset its properties ready to be played the next time we enter the Main Loop.
 			// The actual playback of Video B will be triggered in the next iteration of the Run loop once the current foreground video has fully finished and foregroundActive becomes false.
-			PlayTrackOnLayer(state, matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &pendingForegroundCmd);
+			PlayTrackOnLayer(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &pendingForegroundCmd);
 		}
 	}
 }
@@ -189,7 +189,7 @@ void PlaybackManager::HandlePendingCoverCmd(AppState& state)
 		int matchIdx = FindVideoSourceIndexByFilename(pendingCoverCmd.filename, state.sources);
 		if (matchIdx != -1)
 		{
-			PlayTrackOnLayer(state, matchIdx, coverTrack, coverActive, LayerType::Cover, &pendingCoverCmd);
+			PlayTrackOnLayer(matchIdx, coverTrack, coverActive, LayerType::Cover, &pendingCoverCmd);
 		}
 	}
 }
@@ -215,8 +215,10 @@ void PlaybackManager::HandlePendingSequenceCmd()
 	}
 }
 
-void PlaybackManager::PlayTrackOnLayer(AppState& state, int videoSourceIdx, std::unique_ptr<VideoTrack>& targetTrack, bool& targetActiveFlag, const LayerType& layerType, DeferredCommand* cmd)
+void PlaybackManager::PlayTrackOnLayer(int videoSourceIdx, std::unique_ptr<VideoTrack>& targetTrack, bool& targetActiveFlag, const LayerType& layerType, DeferredCommand* cmd)
 {
+	AppState& state = appInterface->GetAppState();
+
 	if (videoSourceIdx < 0 || videoSourceIdx >= static_cast<int>(state.sources.size()))
 	{
 		std::cerr << "Invalid video source index for " << LayerTypeToStr(layerType) << ": " << videoSourceIdx << std::endl;
@@ -382,7 +384,7 @@ void PlaybackManager::ProcessDeferredCommands()
 						{
 							activeSequence->Stop();
 						}
-						PlayTrackOnLayer(state, matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
+						PlayTrackOnLayer(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
 					}
 				}
 				break;
@@ -430,7 +432,7 @@ void PlaybackManager::ProcessDeferredCommands()
 					}
 					else
 					{
-						PlayTrackOnLayer(state, matchIdx, coverTrack, coverActive, LayerType::Cover, &cmd);
+						PlayTrackOnLayer(matchIdx, coverTrack, coverActive, LayerType::Cover, &cmd);
 					}
 				}
 				break;
