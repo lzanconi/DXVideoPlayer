@@ -88,8 +88,7 @@ private:
 	void InitVideoTracks();
 	void ProcessDeferredCommands();
 	void StopForegroundActivities();
-	void UpdateAndPlayFG(int videoSourceIdx, DeferredCommand* cmd = nullptr);
-	void UpdateAndPlayCover(int videoSourceIdx, DeferredCommand* cmd = nullptr);
+	void PlayVideoOnLayer(int videoSourceIdx, std::unique_ptr<VideoTrack>& targetTrack, bool& targetActiveFlag, const LayerType& layerType, DeferredCommand* cmd = nullptr);
 	static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 	LRESULT HandleMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 	void ToggleFullscreen(HWND hwnd);

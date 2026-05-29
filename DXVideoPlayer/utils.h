@@ -36,6 +36,16 @@ inline std::string VideoTrackStateToStr(VideoTrackState state)
     }
 }
 
+inline std::string LayerTypeToStr(LayerType layerType)
+{
+    switch (layerType)
+    {
+        case LayerType::Foreground: return "Foreground";
+        case LayerType::Cover: return "Cover";
+        default: return "Unknown";
+	}
+}
+
 inline std::string GetDurationMinSec(int totalSeconds)
 {
     int minutes = totalSeconds / 60;

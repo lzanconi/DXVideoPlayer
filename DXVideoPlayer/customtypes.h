@@ -46,6 +46,13 @@ enum class NetworkCommandType
     PlayCover
 };
 
+//Enumeration for different video layer types, which can be used to determine which track (foreground or cover) a command should target
+enum class LayerType
+{
+    Foreground,
+    Cover
+};
+
 //Struct to represent a deferred network command, containing the command type and any associated data (e.g., filename for PlayForeground)
 struct DeferredCommand
 {

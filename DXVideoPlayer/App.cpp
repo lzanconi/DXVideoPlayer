@@ -103,7 +103,7 @@ void App::Run()
         if (spaceBarPressed)
         {
 			spaceBarPressed = false;
-            UpdateAndPlayFG(1);
+			PlayVideoOnLayer(1, fgTrack, fgActive, LayerType::Foreground);
         }
 
 		//Pressing 'T' key will trigger an immediate forced fade-out of the foreground video if it is active
@@ -180,7 +180,7 @@ void App::Run()
 
                 //Instantly instantiate Video B and reset its properties ready to be played the next time we enter the Run loop.
 				//The actual playback of Video B will be triggered in the next iteration of the Run loop once the current foreground video has fully finished and fgActive becomes false.
-                UpdateAndPlayFG(matchIdx, &pendingFGCommand);
+				PlayVideoOnLayer(matchIdx, fgTrack, fgActive, LayerType::Foreground, &pendingFGCommand);
             }
         }
 
@@ -192,7 +192,8 @@ void App::Run()
             int matchIdx = FindVideoSourceIndexByFilename(pendingCoverCommand.filename, state.sources);
             if (matchIdx != -1)
             {
-                UpdateAndPlayCover(matchIdx, &pendingCoverCommand);
+                //UpdateAndPlayCover(matchIdx, &pendingCoverCommand);
+				PlayVideoOnLayer(matchIdx, coverTrack, coverActive, LayerType::Cover, &pendingCoverCommand);
             }
         }
 
@@ -443,7 +444,7 @@ void App::TriggerSequenceItem(const DeferredCommand& cmd)
 	int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
     if (matchIdx != -1)
     {
-        UpdateAndPlayFG(matchIdx, const_cast<DeferredCommand*>(&cmd));
+		PlayVideoOnLayer(matchIdx, fgTrack, fgActive, LayerType::Foreground, const_cast<DeferredCommand*>(&cmd));
     }
     else
     {
@@ -546,7 +547,7 @@ void App::ProcessDeferredCommands()
                         {
                             activeSequence->Stop();
                         }
-                        UpdateAndPlayFG(matchIdx, &cmd);
+						PlayVideoOnLayer(matchIdx, fgTrack, fgActive, LayerType::Foreground, &cmd);
                     }
                 }
                 break;
@@ -605,7 +606,7 @@ void App::ProcessDeferredCommands()
                     }
                     else
                     {
-                        UpdateAndPlayCover(matchIdx, &cmd);
+						PlayVideoOnLayer(matchIdx, coverTrack, coverActive, LayerType::Cover, &cmd);
                     }
                 }
                 break;
@@ -638,16 +639,18 @@ void App::StopForegroundActivities()
 	}
 }
 
-void App::UpdateAndPlayFG(int videoSourceIdx, DeferredCommand* cmd)
+void App::PlayVideoOnLayer(int videoSourceIdx, std::unique_ptr<VideoTrack>& targetTrack, bool& targetActiveFlag, const LayerType& layerType, DeferredCommand* cmd)
 {
     if (videoSourceIdx < 0 || videoSourceIdx >= static_cast<int>(state.sources.size()))
     {
-        std::cerr << "Invalid video source index: " << videoSourceIdx << std::endl;
+        std::cerr << "Invalid video source index for " << LayerTypeToStr(layerType) << ": " << videoSourceIdx << std::endl;
         return;
     }
 
-    std::cout << "[Main Thread] Swapping foreground video to index: " << videoSourceIdx << " (" << state.sources[videoSourceIdx]->filename << ")" << std::endl;
+    std::cout << "[Main Thread] Swapping " << LayerTypeToStr(layerType) << " layer video to index: "
+        << videoSourceIdx << " (" << state.sources[videoSourceIdx]->filename << ")" << std::endl;
 
+	//Update the video source properties based on the command parameters if provided
     if (cmd)
     {
         state.sources[videoSourceIdx]->fadeInDuration = cmd->fadeInDuration;
@@ -655,16 +658,19 @@ void App::UpdateAndPlayFG(int videoSourceIdx, DeferredCommand* cmd)
         state.sources[videoSourceIdx]->looped = cmd->looped;
     }
 
+	//Set initial alpha to 0 for fade-in effect
     state.sources[videoSourceIdx]->alpha = 0.0f;
 
-    fgTrack = std::make_unique<VideoTrack>(state.sources[videoSourceIdx]);
-    fgTrack->SetBlending(true);
-    fgTrack->Rewind();
-    fgTrack->Play(GetTimeStd());
+    // Dynamically update the passed track unique_ptr pointer structure
+    targetTrack = std::make_unique<VideoTrack>(state.sources[videoSourceIdx]);
+    targetTrack->SetBlending(true);
+    targetTrack->Rewind();
+    targetTrack->Play(GetTimeStd());
 
     // Force wrapper synchronization status explicitly
-    fgTrack->SetActive(true);
+    targetTrack->SetActive(true);
 
+    // Bootstrap first frame mapping context
     ID3D11DeviceContext* ctx = renderer->GetContext();
     state.sources[videoSourceIdx]->GetNextFrame(ctx);
 
@@ -677,47 +683,8 @@ void App::UpdateAndPlayFG(int videoSourceIdx, DeferredCommand* cmd)
         state.sources[videoSourceIdx]->alpha = 0.0f;
     }
 
-    fgActive = true;
-}
-
-void App::UpdateAndPlayCover(int videoSourceIdx, DeferredCommand* cmd)
-{
-    if (videoSourceIdx < 0 || videoSourceIdx >= static_cast<int>(state.sources.size()))
-    {
-        std::cerr << "Invalid video source index: " << videoSourceIdx << std::endl;
-        return;
-    }
-
-    std::cout << "[Main Thread] Swapping cover video to index: " << videoSourceIdx << std::endl;
-
-    if (cmd)
-    {
-        state.sources[videoSourceIdx]->fadeInDuration = cmd->fadeInDuration;
-        state.sources[videoSourceIdx]->fadeOutDuration = cmd->fadeOutDuration;
-        state.sources[videoSourceIdx]->looped = cmd->looped;
-    }
-
-    state.sources[videoSourceIdx]->alpha = 0.0f;
-
-    coverTrack = std::make_unique<VideoTrack>(state.sources[videoSourceIdx]);
-    coverTrack->SetBlending(true);
-    coverTrack->Rewind();
-    coverTrack->Play(GetTimeStd());
-
-    // Force wrapper synchronization status explicitly
-    coverTrack->SetActive(true);
-
-    ID3D11DeviceContext* ctx = renderer->GetContext();
-    state.sources[videoSourceIdx]->GetNextFrame(ctx);
-
-    if (state.sources[videoSourceIdx]->isFadingIn) {
-        state.sources[videoSourceIdx]->ComputeFadeIn();
-    }
-    else if (state.sources[videoSourceIdx]->fadeInDuration > 0.0f) {
-        state.sources[videoSourceIdx]->alpha = 0.0f;
-    }
-
-    coverActive = true;
+    // Toggle the specific layer visibility state flag on
+    targetActiveFlag = true;
 }
 
 LRESULT App::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
