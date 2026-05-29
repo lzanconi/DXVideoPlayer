@@ -141,13 +141,13 @@ void App::Run()
         {
             //Turns off the foreground layer
             fgActive = false; 
+        }
 
-            //Verifies that there aren't any pending foreground or sequence commands and if there's an active sequence (and if it's currently active) before
-            //advancing to the next item in the sequence
-            if (!hasPendingFGCommand && !hasPendingSeqCommand && activeSequence && activeSequence->isActive)
-            {
-                activeSequence->AdvanceSequence();
-            }
+        // Triggered precisely when the foreground track has finished playing, 
+        // provided no other override network commands are waiting in line.
+        if (!fgActive && !hasPendingFGCommand && !hasPendingSeqCommand && activeSequence && activeSequence->isActive)
+        {
+            activeSequence->AdvanceSequence();
         }
 
 		//If a cover track is active but has reached the end of the video or completed its fade-out, it will automatically deactivate and stop rendering
