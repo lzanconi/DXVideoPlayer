@@ -140,7 +140,7 @@ void PlaybackManager::ResetCoverLayer()
 * VIDEO A is playing in the foreground, a new command to play VIDEO B is received:
 *	1.Video A starts a forced fade-out 
 *	2.While Video A is fading out, Video B must wait in line
-*	3.Once Video A finsihes (fgActive = false) it stops, then Video B instantly start plaing (usually with a fading-in)
+*	3.Once Video A finsihes (foregroundActive = false) it stops, then Video B instantly start plaing (usually with a fading-in)
 
 * Checks if a previous foreground video has just finished (foregroundActive = false) and if there is a pending command to play a new foreground video. 
 * If both conditions are met, it processes the pending command by finding the corresponding video source index and instantiating the foreground track with the new video.
@@ -155,7 +155,7 @@ void PlaybackManager::HandlePendingForegroundCmd(AppState& state)
 		if (matchIdx != -1)
 		{
 			// Instantly instantiate Video B and reset its properties ready to be played the next time we enter the Main Loop.
-			// The actual playback of Video B will be triggered in the next iteration of the Run loop once the current foreground video has fully finished and fgActive becomes false.
+			// The actual playback of Video B will be triggered in the next iteration of the Run loop once the current foreground video has fully finished and foregroundActive becomes false.
 			PlayTrackOnLayer(state, matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &pendingForegroundCmd);
 		}
 	}
@@ -172,7 +172,7 @@ void PlaybackManager::HandleSequenceShutdown()
 		if (activeSequence && activeSequence->isActive)
 		{
 			// This does not stop the current sequence video immediately, it just stops the sequence preventing it to advance to the next item we enter the Main Loop.
-			// The fade out of the current sequence video is called in StopForegroundActivities() when a new foreground video command is received while a sequence is active.
+			// The fade out of the current sequence video is called in ForceStopForegroundLayers() when a new foreground video command is received while a sequence is active.
 			activeSequence->Stop();
 		}
 	}
@@ -299,6 +299,142 @@ void PlaybackManager::RenderLayers(float winW, float winH)
 		else
 		{
 			coverTrack->Render(renderer, videoShader, winW, winH);
+		}
+	}
+}
+
+/*
+* Triggers an immediate forced fade-out of the foreground and cover videos if they are active, and resets all pending command flags.
+*/
+void PlaybackManager::ForceStopForegroundLayers()
+{
+	hasPendingForegroundCmd = false;
+	hasPendingSequenceCmd = false;
+	hasPendingCoverCmd = false;
+
+	if (activeSequence && activeSequence->isActive)
+	{
+		activeSequence->Stop();
+	}
+
+	if (foregroundActive && foregroundTrack)
+	{
+		foregroundTrack->StartForcedFadeOut();
+	}
+
+	if (coverActive && coverTrack)
+	{
+		coverTrack->StartForcedFadeOut();
+	}
+}
+
+void PlaybackManager::EnqueueNetworkCommand(const DeferredCommand& cmd)
+{
+	std::lock_guard<std::mutex> lock(queueMutex);
+	commandQueue.push(cmd);
+}
+
+void PlaybackManager::ProcessDeferredCommands()
+{
+	std::queue<DeferredCommand> localQueue;
+	AppState& state = appInterface->GetAppState();
+
+	{
+		std::lock_guard<std::mutex> lock(queueMutex);
+		if (commandQueue.empty()) return;
+		std::swap(commandQueue, localQueue);
+	}
+
+	while (!localQueue.empty())
+	{
+		DeferredCommand cmd = localQueue.front();
+		localQueue.pop();
+
+		switch (cmd.type)
+		{
+			case NetworkCommandType::Stop:
+			{
+				std::cout << ">>> [PlaybackManager] Processing deferred 'stop' action." << std::endl;
+				ForceStopForegroundLayers();
+				break;
+			}
+			case NetworkCommandType::PlayForeground:
+			{
+				std::cout << "[PlaybackManager] Processing deferred 'play_foreground': " << cmd.filename << std::endl;
+				int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
+
+				if (matchIdx != -1)
+				{
+					if (foregroundActive && foregroundTrack && foregroundTrack->IsActive())
+					{
+						pendingForegroundCmd = cmd;
+						hasPendingForegroundCmd = true;
+
+						if (activeSequence && activeSequence->isActive)
+						{
+							activeSequence->Stop();
+						}
+						foregroundTrack->StartForcedFadeOut();
+					}
+					else
+					{
+						if (activeSequence && activeSequence->isActive)
+						{
+							activeSequence->Stop();
+						}
+						PlayTrackOnLayer(state, matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
+					}
+				}
+				break;
+			}
+			case NetworkCommandType::PlaySequence:
+			{
+				std::cout << "[PlaybackManager] Processing deferred 'play_sequence': " << cmd.filename << std::endl;
+
+				if (foregroundActive && foregroundTrack && foregroundTrack->IsActive())
+				{
+					std::cout << "[PlaybackManager] Foreground busy. Buffering sequence, forcing fade out." << std::endl;
+					pendingSequenceCmd = cmd;
+					hasPendingSequenceCmd = true;
+
+					if (activeSequence && activeSequence->isActive)
+					{
+						activeSequence->Stop();
+					}
+					foregroundTrack->StartForcedFadeOut();
+				}
+				else
+				{
+					hasPendingSequenceCmd = false;
+					if (activeSequence)
+					{
+						activeSequence->items[0].fadeInDuration = cmd.fadeInDuration;
+						activeSequence->items[activeSequence->items.size() - 1].fadeOutDuration = cmd.fadeOutDuration;
+						activeSequence->Stop();
+						activeSequence->Play(cmd.looped);
+					}
+				}
+				break;
+			}
+			case NetworkCommandType::PlayCover:
+			{
+				std::cout << "[PlaybackManager] Processing deferred 'play_cover': " << cmd.filename << std::endl;
+				int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
+				if (matchIdx != -1)
+				{
+					if (coverActive && coverTrack && coverTrack->IsActive())
+					{
+						pendingCoverCmd = cmd;
+						hasPendingCoverCmd = true;
+						coverTrack->StartForcedFadeOut();
+					}
+					else
+					{
+						PlayTrackOnLayer(state, matchIdx, coverTrack, coverActive, LayerType::Cover, &cmd);
+					}
+				}
+				break;
+			}
 		}
 	}
 }

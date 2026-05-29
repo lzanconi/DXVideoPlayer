@@ -46,6 +46,7 @@ public:
 	~PlaybackManager() = default;
 
 	void InitializeVideoTracks();
+	
 	//PHASE 1 Methods (non-blocking decoding, texture update and layer state management)
 	void DecodeVideoFrameTextures(ID3D11DeviceContext* context);
 	void UpdateLayers(ID3D11DeviceContext* context);
@@ -62,5 +63,9 @@ public:
 
 	//PHASE 2 Methods (Direct3D rendering)
 	void RenderLayers(float winW, float winH);
+	void ForceStopForegroundLayers();
+
+	void EnqueueNetworkCommand(const DeferredCommand& cmd);
+	void ProcessDeferredCommands();
 };
 
