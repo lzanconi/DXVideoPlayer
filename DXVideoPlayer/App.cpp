@@ -164,23 +164,30 @@ void App::Run()
         //
         //This condition checks if a previous foreground video has just finished (fgActive = false) and if there is a pending foreground 
         //command waiting to be played (hasPendingFGCommand = true).
+         
+        //Handle Standalone Foreground Video Activation
         if (!fgActive && hasPendingFGCommand)
         {
             hasPendingFGCommand = false;
             int matchIdx = FindVideoSourceIndexByFilename(pendingFGCommand.filename, state.sources);
             if (matchIdx != -1)
             {
-                // Turn off the sequence processing state since a single video is taking over
-                if (activeSequence && activeSequence->isActive)
-                {
-                    //This does not stops the current sequence video immediately, it just stops the sequence preventing it to advance to the next item
-					//The fade out of current sequence video is called in StopForegroundActivities() when a new foreground video command is received while a sequence is active
-                    activeSequence->Stop();
-                }
+                // Instantly instantiate Video B and reset its properties ready to be played the next time we enter the Run loop.
+                // The actual playback of Video B will be triggered in the next iteration of the Run loop once the current foreground video has fully finished and fgActive becomes false.
+                PlayVideoOnLayer(matchIdx, fgTrack, fgActive, LayerType::Foreground, &pendingFGCommand);
+            }
+        }
 
-                //Instantly instantiate Video B and reset its properties ready to be played the next time we enter the Run loop.
-				//The actual playback of Video B will be triggered in the next iteration of the Run loop once the current foreground video has fully finished and fgActive becomes false.
-				PlayVideoOnLayer(matchIdx, fgTrack, fgActive, LayerType::Foreground, &pendingFGCommand);
+        // Handle Sequence Shutdown
+        // If a sequence is active when a standalone foreground command takes over,
+        // stop the sequence processor right away so it won't auto-advance.
+        if (!fgActive && hasPendingFGCommand)
+        {
+            if (activeSequence && activeSequence->isActive)
+            {
+                // This does not stop the current sequence video immediately, it just stops the sequence preventing it to advance to the next item.
+                // The fade out of current sequence video is called in StopForegroundActivities() when a new foreground video command is received while a sequence is active.
+                activeSequence->Stop();
             }
         }
 
