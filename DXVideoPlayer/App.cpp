@@ -114,7 +114,7 @@ void App::Run()
 		}
 
         // =================================================================
-        // PHASE 1: NON-BLOCKING UPDATE STAGE 
+        // PHASE 1: NON-BLOCKING DECODING AND TEXTURE UPDATE
         // In PHASE 1:
 		// -Decodes the next video frame for the active tracks (background always, foreground if active)
 		// -Computes the dynamic alpha values for fade-in and fade-out effects 
@@ -135,9 +135,11 @@ void App::Run()
 		//If the foreground track is active but has reached the end of the video or completed its fade-out, it will automatically deactivate and stop rendering
         if (fgActive && fgTrack && !fgTrack->IsActive())
         {
-            fgActive = false; // Layer is now clear
+            //Turns off the foreground layer
+            fgActive = false; 
 
-            // Advance to next video item ONLY if we aren't waiting to start a whole new sequence
+            //Verifies that there aren't any pending foreground or sequence commands and if there's an active sequence (and if it's currently active) before
+            //advancing to the next item in the sequence
             if (!hasPendingFGCommand && !hasPendingSeqCommand && activeSequence && activeSequence->isActive)
             {
                 activeSequence->AdvanceSequence();
@@ -161,20 +163,29 @@ void App::Run()
                 // Turn off the sequence processing state since a single video is taking over
                 if (activeSequence && activeSequence->isActive)
                 {
+                    //This does not stops the current sequence video immediately, it just stops the sequence preventing it to advance to the next item
+					//The fade out of current sequence video is called in StopForegroundActivities() when a new foreground video command is received while a sequence is active
                     activeSequence->Stop();
                 }
+
+                //Instantly instantiate Video B and reset its properties ready to be played the next time we enter the Run loop.
+				//The actual playback of Video B will be triggered in the next iteration of the Run loop once the current foreground video has fully finished and fgActive becomes false.
                 UpdateAndPlayFG(matchIdx, &pendingFGCommand);
             }
         }
 
+		//Wait until the current foreground video has fully finished (including fade-out so it turns fgActive = true) before starting the next sequence item if there is a pending sequence command
         if (!fgActive && hasPendingSeqCommand)
         {
             hasPendingSeqCommand = false;
             std::cerr << "[Main Thread] Foreground track cleared perfectly. Booting pending sequence now." << std::endl;
 
+            //Verifies that there is an active sequence
             if (activeSequence)
             {
+                //Even though the sequence might already be idle, calling Stop() is a safety measure that forcefully resets its properties
                 activeSequence->Stop();
+				//Prepares the first item of the sequence to be played in the next iterations of the Run loop
                 activeSequence->Play(pendingSeqCommand.looped);
             }
         }
