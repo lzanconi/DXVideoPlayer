@@ -60,6 +60,7 @@ public:
 	void AdvanceSequence();
 	void ResetCoverLayer();
 
+	void HandlePendingBackgroundCmd(AppState& state);
 	void HandlePendingForegroundCmd(AppState& state);
 	void HandleSequenceShutdown();
 	void HandlePendingCoverCmd(AppState& state);

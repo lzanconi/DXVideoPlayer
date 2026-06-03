@@ -86,23 +86,7 @@ void PlaybackManager::UpdateLayers(ID3D11DeviceContext* context)
 	//Decodes the next video frame for the active tracks (background always, foreground and cover if active), updates alpha values and updates their textures for rendering in PHASE 2
 	DecodeVideoFrameTextures(context);
 	
-	if (backgroundActive && backgroundTrack && !backgroundTrack->IsActive())
-	{
-		backgroundActive = false;
-	}
-
-	if (backgroundTrack && !backgroundTrack->IsActive())
-	{
-		if (hasPendingBackgroundCmd)
-		{
-			hasPendingBackgroundCmd = false;
-			int matchIdx = FindVideoSourceIndexByFilename(pendingBackgroundCmd.filename, state.sources);
-			if (matchIdx != -1)
-			{
-				PlayTrackOnLayer(matchIdx, backgroundTrack, backgroundActive, LayerType::Background, &pendingBackgroundCmd);
-			}
-		}
-	}
+	HandlePendingBackgroundCmd(state);
 
 	//Manages the active states of the foreground, automatically deactivating it when it has finished playing or completed its fade-out transitions.
 	ResetForegroundLayer();
@@ -155,6 +139,27 @@ void PlaybackManager::ResetCoverLayer()
 	if (coverActive && coverTrack && !coverTrack->IsActive())
 	{
 		coverActive = false;
+	}
+}
+
+void PlaybackManager::HandlePendingBackgroundCmd(AppState& state)
+{
+	if (backgroundActive && backgroundTrack && !backgroundTrack->IsActive())
+	{
+		backgroundActive = false;
+	}
+
+	if (backgroundTrack && !backgroundTrack->IsActive())
+	{
+		if (hasPendingBackgroundCmd)
+		{
+			hasPendingBackgroundCmd = false;
+			int matchIdx = FindVideoSourceIndexByFilename(pendingBackgroundCmd.filename, state.sources);
+			if (matchIdx != -1)
+			{
+				PlayTrackOnLayer(matchIdx, backgroundTrack, backgroundActive, LayerType::Background, &pendingBackgroundCmd);
+			}
+		}
 	}
 }
 
