@@ -1,9 +1,9 @@
 #include "Sequence.h"
 #include <iostream>
-#include "App.h"
 
-Sequence::Sequence(std::string& name, const std::vector<SequenceItem>& items, IApp* appInterface)
-	: name(name), items(items), appInterface(appInterface)
+#include "PlaybackManager.h"
+Sequence::Sequence(std::string& name, const std::vector<SequenceItem>& items, PlaybackManager* playbackMgr)
+	: name(name), items(items), playbackMgr(playbackMgr)
 { }
 
 void Sequence::Play(bool shouldLoop)
@@ -27,7 +27,7 @@ void Sequence::Play(bool shouldLoop)
 	cmd.fadeOutDuration = items[currentIndex].fadeOutDuration;
 	cmd.looped = false;
 
-	appInterface->TriggerSequenceItem(cmd);
+	playbackMgr->PlaySequenceItem(cmd);
 }
 
 void Sequence::Stop()
@@ -74,5 +74,5 @@ void Sequence::AdvanceSequence()
 	cmd.fadeOutDuration = appliedFadeOut;
 	cmd.looped = false;
 
-	appInterface->TriggerSequenceItem(cmd);
+	playbackMgr->PlaySequenceItem(cmd);
 }	

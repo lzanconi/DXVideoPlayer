@@ -3,12 +3,12 @@
 #include <string>
 #include "customtypes.h"
 
-class IApp;
+class PlaybackManager;
 
 class Sequence
 {
 private:
-	IApp* appInterface;
+	PlaybackManager* playbackMgr;
 
 public:
 	std::string name;
@@ -19,7 +19,7 @@ public:
 	bool isFirstRun = true;
 
 public:
-	Sequence(std::string& name, const std::vector<SequenceItem>& items, IApp* appInterface);
+	Sequence(std::string& name, const std::vector<SequenceItem>& items, PlaybackManager* playbackMgr);
 	~Sequence() = default;
 
 	void Play(bool shouldLoop = false);

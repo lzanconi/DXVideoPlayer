@@ -23,7 +23,6 @@ void ContentManager::LoadContentsFromFolder(const std::string& folderPath)
         }
 
         LoadVideoContents(folderPath);
-        LoadSequences(folderPath);
 
     }
     catch (const std::exception& e)
@@ -159,7 +158,7 @@ void ContentManager::LoadCSVPositions(VideoContent& content, const std::string& 
     }
 }
 
-void ContentManager::LoadSequences(const std::string& folderPath)
+void ContentManager::LoadSequences(const std::string& folderPath, PlaybackManager* playbackMgr)
 {
     std::string sequencePath = "";
 
@@ -177,7 +176,7 @@ void ContentManager::LoadSequences(const std::string& folderPath)
 
                 std::vector<SequenceItem> sequenceItems;
                 ParseSequenceFile(sequencePath, sequenceItems);
-				Sequence* sequence = new Sequence(seqFilename, sequenceItems, appInterface);
+				Sequence* sequence = new Sequence(seqFilename, sequenceItems, playbackMgr);
 				appInterface->GetAppState().sequences.push_back(sequence);
                 /*Sequence* sequence = new Sequence(seqFilename, sequenceItems, appInterface);
                 appInterface->GetAppState().sequences.push_back(sequence);*/

@@ -20,6 +20,7 @@ App::App(int width, int height)
 {
     contentMgr = new ContentManager(this);
     contentMgr->LoadContentsFromFolder(".\\Videos");
+
     if (contentMgr->GetVideoContents().empty())
     {
         /*std::cerr << "No .mp4 files found." << std::endl;*/
@@ -44,6 +45,9 @@ App::App(int width, int height)
 
 	playbackMgr = new PlaybackManager(this, videoShader);
 	playbackMgr->InitializeVideoTracks();
+
+	contentMgr->LoadSequences(".\\Videos", playbackMgr);
+
 	
 	ShowWindow(window, SW_SHOW);
 	ToggleFullscreen(window);
@@ -121,21 +125,6 @@ void App::Run()
         ID3D11DeviceContext* ctx = renderer->GetContext();
 
 		playbackMgr->UpdateLayers(ctx);
-
-    //    if (!fgActive && hasPendingSeqCommand)
-    //    {
-    //        hasPendingSeqCommand = false;
-    //        std::cerr << "[Main Thread] Foreground track cleared perfectly. Booting pending sequence now." << std::endl;
-
-    //        //Verifies that there is an active sequence
-    //        if (activeSequence)
-    //        {
-    //            //Even though the sequence might already be idle, calling Stop() is a safety measure that forcefully resets its properties
-    //            activeSequence->Stop();
-				////Prepares the first item of the sequence to be played in the next iterations of the Run loop
-    //            activeSequence->Play(pendingSeqCommand.looped);
-    //        }
-    //    }
 
         //Get current window dimensions
         RECT rc; 
@@ -311,18 +300,6 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
     {
         std::cerr << "Error handling network command: " << ex.what() << std::endl;
 	}
-
-
-}
-
-void App::TriggerSequenceItem(DeferredCommand& cmd)
-{
-	AppState& appState = GetAppState();
-	int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, appState.sources);
-    if (matchIdx != -1)
-    {
-		playbackMgr->PlayTrackOnLayer(matchIdx, playbackMgr->foregroundTrack, playbackMgr->foregroundActive, LayerType::Foreground, &cmd);
-    }
 }
 
 void App::LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context)

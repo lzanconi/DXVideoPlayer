@@ -61,6 +61,7 @@ public:
 	void HandlePendingCoverCmd(AppState& state);
 	void HandlePendingSequenceCmd();
 	void PlayTrackOnLayer(int videoSourceIdx, std::unique_ptr<VideoTrack>& targetTrack, bool& targetActiveFlag, const LayerType& layerType, DeferredCommand* cmd = nullptr);
+	void PlaySequenceItem(DeferredCommand& cmd);
 
 	//PHASE 2 Methods (Direct3D rendering)
 	void RenderLayers(float winW, float winH);

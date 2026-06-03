@@ -59,7 +59,6 @@ public:
 	AppState& GetAppState() override;
 	void SetClientSocket(int socket) override;
 	void HandleNetworkCommand(const std::string& jsonStr) override;
-	void TriggerSequenceItem(DeferredCommand& cmd) override;
 
 private:
 	void LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context);

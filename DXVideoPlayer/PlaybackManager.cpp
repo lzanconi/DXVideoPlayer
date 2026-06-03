@@ -33,7 +33,7 @@ void PlaybackManager::InitializeVideoTracks()
 	backgroundTrack->Play(GetTimeStd());
 
 	//Sets the first sequence in the AppState as the active sequence if there are any sequences loaded, allowing it to be triggered later when a PlaySequence command is received.
-	if (state.sequences.empty())
+	if (!state.sequences.empty())
 	{
 		activeSequence = state.sequences[0];
 	}
@@ -278,6 +278,16 @@ void PlaybackManager::PlayTrackOnLayer(int videoSourceIdx, std::unique_ptr<Video
 
 	// Toggle the specific layer visibility state flag on
 	targetActiveFlag = true;
+}
+
+void PlaybackManager::PlaySequenceItem(DeferredCommand& cmd)
+{
+	AppState& state = appInterface->GetAppState();
+	int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
+	if (matchIdx != -1)
+	{
+		PlayTrackOnLayer(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
+	}
 }
 
 /*
