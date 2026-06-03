@@ -41,6 +41,7 @@ enum class VideoTrackState
 enum class NetworkCommandType
 {
     Stop,
+    PlayBackground,
     PlayForeground,
     PlaySequence,
     PlayCover
@@ -49,6 +50,7 @@ enum class NetworkCommandType
 //Enumeration for different video layer types, which can be used to determine which track (foreground or cover) a command should target
 enum class LayerType
 {
+    Background,
     Foreground,
     Cover
 };

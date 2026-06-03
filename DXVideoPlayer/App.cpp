@@ -210,6 +210,31 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
             responseMessage = "{\"status\":\"acknowledged\",\"command\":\"stop\"}";
         }
 
+		//PLAY BACKGROUND COMMAND:
+        if (j.contains("play_background"))
+        {
+            //Set the command type to PlayBackground, which will be used in the main thread to determine which action to execute
+            cmd.type = NetworkCommandType::PlayBackground;
+            //Extract the filename parameter from the JSON command, which specifies which video to play in the background
+            cmd.filename = j["play_background"].get<std::string>();
+            if (j.contains("fade_in_seconds"))
+            {
+                cmd.fadeInDuration = j["fade_in_seconds"].get<float>();
+            }
+            if (j.contains("fade_out_seconds"))
+            {
+                cmd.fadeOutDuration = j["fade_out_seconds"].get<float>();
+            }
+            if (j.contains("loop"))
+            {
+                cmd.looped = j["loop"].get<bool>();
+            }
+            //Safely enqueue the command into the shared command queue with proper locking to ensure thread safety
+            playbackMgr->EnqueueNetworkCommand(cmd);
+            commandProcessed = true;
+            responseMessage = "{\"status\":\"acknowledged\",\"command\":\"play_background\"}";
+		}
+
 		//PLAY FOREGROUND COMMAND:
         if (j.contains("play_foreground"))
         {

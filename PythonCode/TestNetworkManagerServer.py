@@ -353,10 +353,10 @@ class JSONSenderApp:
         if fade_in is None or fade_out is None or fg_fade_out_time is None: return
 
         message_dict = {
-            "play_background": "./prod/stresstest/" + filename, 
+            "play_background": filename, 
             "loop": self.loop_bg_var.get(), 
             "fade_in_seconds": fade_in, 
-            "fg_fade_out_seconds": fg_fade_out_time, 
+            "fade_out_seconds": fade_out, 
             "id": self.ids.get(filename, random.randint(0, 100))
         }
         self._send_json_via_socket(message_dict)

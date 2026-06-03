@@ -23,6 +23,9 @@ private:
 	std::queue<DeferredCommand> commandQueue;
 	std::mutex queueMutex;
 
+	bool hasPendingBackgroundCmd = false;
+	DeferredCommand pendingBackgroundCmd;
+
 	bool hasPendingForegroundCmd = false;
 	DeferredCommand pendingForegroundCmd;
 
@@ -37,6 +40,7 @@ public:
 	std::unique_ptr<VideoTrack> foregroundTrack;
 	std::unique_ptr<VideoTrack> coverTrack;
 
+	bool backgroundActive = false;
 	bool foregroundActive = false;
 	bool coverActive = false;
 

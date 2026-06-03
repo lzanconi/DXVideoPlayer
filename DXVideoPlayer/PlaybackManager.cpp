@@ -25,7 +25,7 @@ void PlaybackManager::InitializeVideoTracks()
 
 	//Enable blending for the foreground and cover tracks to allow for proper alpha compositing during fade-in and fade-out transitions, 
 	//while keeping blending disabled for the background track since it will always be fully opaque.
-	backgroundTrack->SetBlending(false);
+	backgroundTrack->SetBlending(true);
 	foregroundTrack->SetBlending(true);
 	coverTrack->SetBlending(true);
 
@@ -83,6 +83,19 @@ void PlaybackManager::UpdateLayers(ID3D11DeviceContext* context)
 
 	//Decodes the next video frame for the active tracks (background always, foreground and cover if active), updates alpha values and updates their textures for rendering in PHASE 2
 	DecodeVideoFrameTextures(context);
+
+	if (backgroundTrack && !backgroundTrack->IsActive())
+	{
+		if (hasPendingBackgroundCmd)
+		{
+			hasPendingBackgroundCmd = false;
+			int matchIdx = FindVideoSourceIndexByFilename(pendingBackgroundCmd.filename, state.sources);
+			if (matchIdx != -1)
+			{
+				PlayTrackOnLayer(matchIdx, backgroundTrack, backgroundActive, LayerType::Background, &pendingBackgroundCmd);
+			}
+		}
+	}
 
 	//Manages the active states of the foreground, automatically deactivating it when it has finished playing or completed its fade-out transitions.
 	ResetForegroundLayer();
@@ -385,6 +398,30 @@ void PlaybackManager::ProcessDeferredCommands()
 				ForceStopForegroundLayers();
 				break;
 			}
+
+			case NetworkCommandType::PlayBackground:
+			{
+				std::cout << "[PlaybackManager] Processing deferred 'play_background': " << cmd.filename << std::endl;
+				int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
+
+				if (matchIdx != -1)
+				{
+					if (backgroundTrack && backgroundTrack->IsActive())
+					{
+						pendingBackgroundCmd = cmd;
+						hasPendingBackgroundCmd = true;
+
+						backgroundTrack->StartForcedFadeOut();
+					}
+					else
+					{
+						PlayTrackOnLayer(matchIdx, backgroundTrack, backgroundActive, LayerType::Background, &cmd);
+					}
+				}
+
+				break;
+			}
+
 			case NetworkCommandType::PlayForeground:
 			{
 				std::cout << "[PlaybackManager] Processing deferred 'play_foreground': " << cmd.filename << std::endl;
