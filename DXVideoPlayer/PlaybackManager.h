@@ -20,13 +20,6 @@ private:
 	IRenderer* renderer;
 	DXShader* videoShader;
 
-	std::unique_ptr<VideoTrack> backgroundTrack;
-	std::unique_ptr<VideoTrack> foregroundTrack;
-	std::unique_ptr<VideoTrack> coverTrack;
-
-	bool foregroundActive = false;
-	bool coverActive = false;
-
 	std::queue<DeferredCommand> commandQueue;
 	std::mutex queueMutex;
 
@@ -38,6 +31,14 @@ private:
 
 	bool hasPendingCoverCmd = false;
 	DeferredCommand pendingCoverCmd;
+
+public:
+	std::unique_ptr<VideoTrack> backgroundTrack;
+	std::unique_ptr<VideoTrack> foregroundTrack;
+	std::unique_ptr<VideoTrack> coverTrack;
+
+	bool foregroundActive = false;
+	bool coverActive = false;
 
 	Sequence* activeSequence = nullptr;
 

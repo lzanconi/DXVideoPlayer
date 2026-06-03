@@ -98,6 +98,9 @@ void PlaybackManager::UpdateLayers(ID3D11DeviceContext* context)
 
 	//Checks if there is a pending command to stop the current sequence and if the foreground layer is not active, and if so, stops the active sequence to prevent it from advancing to the next item in the sequence.
 	HandleSequenceShutdown();
+
+	//Checks if there is a pending command to play a new sequence and if the foreground layer is not active, and if so, processes the pending command to start playing the new sequence.
+	HandlePendingSequenceCmd();
 }
 
 /*
@@ -204,13 +207,25 @@ void PlaybackManager::HandlePendingSequenceCmd()
 		hasPendingSequenceCmd = false;
 		std::cerr << "[Main Thread] Foreground track cleared perfectly. Booting pending sequence now." << std::endl;
 
-		//Verifies that there is an active sequence
-		if (activeSequence)
+		Sequence* targetSequence = nullptr;	
+		for (auto seq : appInterface->GetAppState().sequences)
 		{
-			//Even though the sequence might already be idle, calling Stop() is a safety measure that forcefully resets its properties
-			activeSequence->Stop();
-			//Prepares the first item of the sequence to be played in the next iterations of the Run loop
+			if (seq->name == pendingSequenceCmd.filename)
+			{
+				targetSequence = seq;
+				break;
+			}
+		}
+
+		if (targetSequence)
+		{
+			activeSequence = targetSequence;
+			activeSequence->Stop(); // Reset the sequence state to ensure it starts from the beginning
 			activeSequence->Play(pendingSequenceCmd.looped);
+		}
+		else
+		{
+			std::cerr << "[Main Thread] Failed to boot pending sequence. File not matched: " << pendingSequenceCmd.filename << std::endl;
 		}
 	}
 }
@@ -393,9 +408,26 @@ void PlaybackManager::ProcessDeferredCommands()
 			{
 				std::cout << "[PlaybackManager] Processing deferred 'play_sequence': " << cmd.filename << std::endl;
 
+				Sequence* targetSequence = nullptr;	
+				for (auto seq : state.sequences)
+				{
+					if (seq->name == cmd.filename)
+					{
+						targetSequence = seq;
+						break;
+					}
+				}
+
+				if (!targetSequence)
+				{
+					std::cerr << "[Main Thread] Error: Requested sequence file not found: " << cmd.filename << std::endl;
+					break;
+				}
+
 				if (foregroundActive && foregroundTrack && foregroundTrack->IsActive())
 				{
 					std::cout << "[PlaybackManager] Foreground busy. Buffering sequence, forcing fade out." << std::endl;
+
 					pendingSequenceCmd = cmd;
 					hasPendingSequenceCmd = true;
 
@@ -408,6 +440,8 @@ void PlaybackManager::ProcessDeferredCommands()
 				else
 				{
 					hasPendingSequenceCmd = false;
+					activeSequence = targetSequence;
+
 					if (activeSequence)
 					{
 						activeSequence->items[0].fadeInDuration = cmd.fadeInDuration;

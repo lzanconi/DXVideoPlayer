@@ -9,6 +9,7 @@
 #include <iostream>
 #include <json.hpp>
 #include "Sequence.h"
+#include "PlaybackManager.h"
 
 using json = nlohmann::json;
 
@@ -41,24 +42,21 @@ App::App(int width, int height)
 
 	LoadVideoSources(renderer->GetDevice(), renderer->GetContext());
 
-	InitVideoTracks();
-
-	bgTrack->Play(GetTimeStd());
-
+	playbackMgr = new PlaybackManager(this, videoShader);
+	playbackMgr->InitializeVideoTracks();
+	
 	ShowWindow(window, SW_SHOW);
 	ToggleFullscreen(window);
 
     state.networkMgr = new NetworkManager("127.0.0.1", 5555, this);
 	state.networkMgr->Start();
-
-    if (!state.sequences.empty())
-    {
-        activeSequence = state.sequences[0];
-	}
 }
 
 App::~App()
 {
+    if (playbackMgr)
+		delete playbackMgr;
+
     if (state.networkMgr)
     {
         state.networkMgr->Stop();
@@ -94,23 +92,21 @@ void App::Run()
             continue;
         }
 
-		//Processes any pending commands that were safely enqueued by the NetworkManager thread through the HandleNetworkCommand method.
-		//This ensures that all Direct3D resource manipulations and state changes triggered by network commands are executed in the main thread
-		ProcessDeferredCommands();
+		playbackMgr->ProcessDeferredCommands();
         
 		//DEBUG PURPOSE: 
         //Pressing spacebar will trigger the playback of a foreground video
         if (spaceBarPressed)
         {
 			spaceBarPressed = false;
-			PlayVideoOnLayer(1, fgTrack, fgActive, LayerType::Foreground);
+			playbackMgr->PlayTrackOnLayer(1, playbackMgr->foregroundTrack, playbackMgr->foregroundActive, LayerType::Foreground);
         }
 
 		//Pressing 'T' key will trigger an immediate forced fade-out of the foreground video if it is active
         if (tKeyPressed)
         {
             tKeyPressed = false;
-            StopForegroundActivities();
+			playbackMgr->ForceStopForegroundLayers();   
 		}
 
         // =================================================================
@@ -124,110 +120,23 @@ void App::Run()
 		//Retrieves the Direct3D device context from the renderer, which is required for updating video frames and copying decoded data into GPU textures.
         ID3D11DeviceContext* ctx = renderer->GetContext();
 
-        //Updates the background video track (decoding, alpha computation, texture updates)
-        if (bgTrack) 
-            bgTrack->UpdateFrame(ctx);
-        
-		//If a foregreound track is active, updates it as well (decoding, alpha computation, texture updates)
-        if (fgActive && fgTrack) 
-            fgTrack->UpdateFrame(ctx);
+		playbackMgr->UpdateLayers(ctx);
 
-		//If a cover track is active, updates it as well (decoding, alpha computation, texture updates)
-        if (coverActive && coverTrack)
-			coverTrack->UpdateFrame(ctx);
+    //    if (!fgActive && hasPendingSeqCommand)
+    //    {
+    //        hasPendingSeqCommand = false;
+    //        std::cerr << "[Main Thread] Foreground track cleared perfectly. Booting pending sequence now." << std::endl;
 
-		//If the foreground track is active but has reached the end of the video or completed its fade-out, it will automatically deactivate and stop rendering
-        if (fgActive && fgTrack && !fgTrack->IsActive())
-        {
-            //Turns off the foreground layer
-            fgActive = false; 
-        }
+    //        //Verifies that there is an active sequence
+    //        if (activeSequence)
+    //        {
+    //            //Even though the sequence might already be idle, calling Stop() is a safety measure that forcefully resets its properties
+    //            activeSequence->Stop();
+				////Prepares the first item of the sequence to be played in the next iterations of the Run loop
+    //            activeSequence->Play(pendingSeqCommand.looped);
+    //        }
+    //    }
 
-        // Triggered precisely when the foreground track has finished playing, 
-        // provided no other override network commands are waiting in line.
-        if (!fgActive && !hasPendingFGCommand && !hasPendingSeqCommand && activeSequence && activeSequence->isActive)
-        {
-            activeSequence->AdvanceSequence();
-        }
-
-		//If a cover track is active but has reached the end of the video or completed its fade-out, it will automatically deactivate and stop rendering
-        if (coverActive && coverTrack && !coverTrack->IsActive())
-        {
-            coverActive = false;
-        }
-
-        //VIDEO A is playing in the foreground, a new command to play VIDEO B is received.
-        //1.Video A starts a forced fade-out 
-        //2.While Video A is fading out, Video B must wait in line
-        //3.Once Video A finsihes (fgActive = false) it stops, then Video B instantly start plaing (usually with a fading-in)
-		//It detects the precise moment an old foreground video finishes (fgActive becomes false)  
-        //
-        //This condition checks if a previous foreground video has just finished (fgActive = false) and if there is a pending foreground 
-        //command waiting to be played (hasPendingFGCommand = true).
-         
-        //Handle Standalone Foreground Video Activation
-        if (!fgActive && hasPendingFGCommand)
-        {
-            hasPendingFGCommand = false;
-            int matchIdx = FindVideoSourceIndexByFilename(pendingFGCommand.filename, state.sources);
-            if (matchIdx != -1)
-            {
-                // Instantly instantiate Video B and reset its properties ready to be played the next time we enter the Run loop.
-                // The actual playback of Video B will be triggered in the next iteration of the Run loop once the current foreground video has fully finished and fgActive becomes false.
-                PlayVideoOnLayer(matchIdx, fgTrack, fgActive, LayerType::Foreground, &pendingFGCommand);
-            }
-        }
-
-        // Handle Sequence Shutdown
-        // If a sequence is active when a standalone foreground command takes over,
-        // stop the sequence processor right away so it won't auto-advance.
-        if (!fgActive && hasPendingFGCommand)
-        {
-            if (activeSequence && activeSequence->isActive)
-            {
-                // This does not stop the current sequence video immediately, it just stops the sequence preventing it to advance to the next item.
-                // The fade out of current sequence video is called in StopForegroundActivities() when a new foreground video command is received while a sequence is active.
-                activeSequence->Stop();
-            }
-        }
-
-		//If a previous cover video has just finished (coverActive = false) and if there is a pending cover command waiting to be played (hasPendingCoverCommand = true), 
-        //it will instantly start playing the new cover video.
-        if (!coverActive && hasPendingCoverCommand)
-        {
-            hasPendingCoverCommand = false;
-            int matchIdx = FindVideoSourceIndexByFilename(pendingCoverCommand.filename, state.sources);
-            if (matchIdx != -1)
-            {
-                //UpdateAndPlayCover(matchIdx, &pendingCoverCommand);
-				PlayVideoOnLayer(matchIdx, coverTrack, coverActive, LayerType::Cover, &pendingCoverCommand);
-            }
-        }
-
-		//Wait until the current foreground video has fully finished (including fade-out so it turns fgActive = true) before starting the next sequence item if there is a pending sequence command
-        if (!fgActive && hasPendingSeqCommand)
-        {
-            hasPendingSeqCommand = false;
-            std::cerr << "[Main Thread] Foreground track cleared perfectly. Booting pending sequence now." << std::endl;
-
-            //Verifies that there is an active sequence
-            if (activeSequence)
-            {
-                //Even though the sequence might already be idle, calling Stop() is a safety measure that forcefully resets its properties
-                activeSequence->Stop();
-				//Prepares the first item of the sequence to be played in the next iterations of the Run loop
-                activeSequence->Play(pendingSeqCommand.looped);
-            }
-        }
-
-        // =================================================================
-        // PHASE 2: DIRECT3D RENDERING STAGE 
-		// 1.Retrieve the current dimensions of the application window's client 
-        //   area to ensure that the video content is rendered correctly 
-        // 2.Prepares the Direct3D rendering context and clears the back buffer to solid black
-        // 3.Finally, renders the decoded textures for background layer and foreground layer (if active)
-        // =================================================================
-        
         //Get current window dimensions
         RECT rc; 
         GetClientRect(window, &rc);
@@ -237,41 +146,7 @@ void App::Run()
         //Prepare Direct3D rendering context
 		renderer->BeginFrame();
 
-		//BACKGROUND LAYER: 
-        //Render background layer
-        if (bgTrack) bgTrack->Render(renderer, videoShader, w, h);
-
-		//FOREGROUND LAYER:
-		//If foreground layer is active, render it on top of the background layer
-        if (fgActive)
-        {
-			//If the foreground track has become inactive (e.g., video ended or finished fading out) during this frame, it will stop rendering and reset fgActive to false
-            if (!fgTrack->IsActive())
-            {
-                fgActive = false;
-            }
-            else
-            {
-                //Render foreground layer
-                fgTrack->Render(renderer, videoShader, w, h);
-            }
-        }
-
-		//COVER LAYER:
-		//If cover layer is active, render it on top of all other layers
-        if (coverActive)
-        {
-            //If the cover track has become inactive (e.g., video ended or finished fading out) during this frame, it will stop rendering and reset coverActive to false
-            if (!coverTrack->IsActive())
-            {
-                coverActive = false;
-            }
-            else
-            {
-				//Render cover layer
-                coverTrack->Render(renderer, videoShader, w, h);
-            }
-        }
+		playbackMgr->RenderLayers(w, h);
 
 		//Swap chains and present the rendered frame to the screen
         renderer->EndFrame();
@@ -290,16 +165,14 @@ void App::SendTCPMessage(const std::string& message)
     }
 }
 
-
-
 VideoSource* App::GetBackgroundVideo()
 {
-    return bgTrack ? bgTrack->GetSource() : nullptr;
+    return playbackMgr->backgroundTrack ? playbackMgr->backgroundTrack->GetSource() : nullptr;
 }
 
 std::vector<float> App::GetPositions()
 {
-    return bgTrack->GetSource()->positions;
+    return playbackMgr->backgroundTrack->GetSource()->positions;
 }
 
 double App::GetLastPTS()
@@ -342,8 +215,7 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
             cmd.type = NetworkCommandType::Stop;
 
             //Safely enqueue the command into the shared command queue with proper locking to ensure thread safety
-            std::lock_guard<std::mutex> lock(queueMutex);
-            commandQueue.push(cmd);
+			playbackMgr->EnqueueNetworkCommand(cmd);
 
             commandProcessed = true;
             responseMessage = "{\"status\":\"acknowledged\",\"command\":\"stop\"}";
@@ -373,8 +245,7 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
             }
 
             //Safely enqueue the command into the shared command queue with proper locking to ensure thread safety
-            std::lock_guard<std::mutex> lock(queueMutex);
-            commandQueue.push(cmd);
+			playbackMgr->EnqueueNetworkCommand(cmd);
 
             commandProcessed = true;
             responseMessage = "{\"status\":\"acknowledged\",\"command\":\"play_background\"}";
@@ -402,8 +273,7 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
             }
 
             //Safely enqueue the command into the shared command queue with proper locking to ensure thread safety
-            std::lock_guard<std::mutex> lock(queueMutex);
-            commandQueue.push(cmd);
+			playbackMgr->EnqueueNetworkCommand(cmd);
 
             commandProcessed = true;
             responseMessage = "{\"status\":\"acknowledged\",\"command\":\"play_sequence\"}";
@@ -425,8 +295,7 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
                 cmd.looped = j["loop"].get<bool>();
             }
 
-            std::lock_guard<std::mutex> lock(queueMutex);
-            commandQueue.push(cmd);
+			playbackMgr->EnqueueNetworkCommand(cmd);
 
             commandProcessed = true;
             responseMessage = "{\"status\":\"acknowledged\",\"command\":\"play_cover\"}";
@@ -446,16 +315,13 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
 
 }
 
-void App::TriggerSequenceItem(const DeferredCommand& cmd)
+void App::TriggerSequenceItem(DeferredCommand& cmd)
 {
-	int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
+	AppState& appState = GetAppState();
+	int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, appState.sources);
     if (matchIdx != -1)
     {
-		PlayVideoOnLayer(matchIdx, fgTrack, fgActive, LayerType::Foreground, const_cast<DeferredCommand*>(&cmd));
-    }
-    else
-    {
-        std::cerr << "[App] Sequence error: Video file not found: " << cmd.filename << std::endl;
+		playbackMgr->PlayTrackOnLayer(matchIdx, playbackMgr->foregroundTrack, playbackMgr->foregroundActive, LayerType::Foreground, &cmd);
     }
 }
 
@@ -483,215 +349,6 @@ void App::LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context)
     {
         std::cout << "VideoSource: " << source->filename << " Duration: " << GetDurationMinSec(static_cast<int>(source->duration)) << std::endl;
     }
-}
-
-void App::InitVideoTracks()
-{
-    bgTrack = std::make_unique<VideoTrack>(state.sources[0]);
-    fgTrack = std::make_unique<VideoTrack>(state.sources[1]);
-	coverTrack = std::make_unique<VideoTrack>(state.sources[2]);
-
-    //fgTrack->GetSource()->fadeInDuration = 0.0f; // Background video starts immediately without fading
-    //fgTrack->GetSource()->fadeOutDuration = 0.0f; // Background video does not fade out naturally
-
-	//Disable blending for the background track since it will always be fully opaque
-    bgTrack->SetBlending(false);
-    //Enable blending for the foreground track to allow for proper alpha compositing during fade-in and fade-out transitions
-    fgTrack->SetBlending(true);
-	//Enable blending for the cover track to allow for proper alpha compositing during fade-in and fade-out transitions
-	coverTrack->SetBlending(true);
-}
-
-void App::ProcessDeferredCommands()
-{
-    std::queue<DeferredCommand> localQueue;
-
-    std::lock_guard<std::mutex> lock(queueMutex);
-    if (commandQueue.empty())
-        return;
-
-    std::swap(commandQueue, localQueue);
-
-    while (!localQueue.empty())
-    {
-        DeferredCommand cmd = localQueue.front();
-        localQueue.pop();
-
-        switch (cmd.type)
-        {
-			//STOP COMMAND:
-            case NetworkCommandType::Stop:
-            {
-                std::cout << ">>> [Main Thread] Processing deferred 'stop' action." << std::endl;
-                StopForegroundActivities();
-                break;
-            }
-
-			//FOREGROUND VIDEO COMMAND:
-            case NetworkCommandType::PlayForeground:
-            {
-                std::cout << "[Main Thread] Processing deferred 'play_foreground' action: " << cmd.filename << std::endl;
-                int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
-
-                if (matchIdx != -1)
-                {
-                    if (fgActive && fgTrack && fgTrack->IsActive())
-                    {
-                        pendingFGCommand = cmd;
-                        hasPendingFGCommand = true;
-
-                        // ADDED: Shut down sequence logic immediately so it doesn't try to auto-advance
-                        if (activeSequence && activeSequence->isActive)
-                        {
-                            activeSequence->Stop();
-                        }
-
-                        fgTrack->StartForcedFadeOut();
-                    }
-                    else
-                    {
-                        if (activeSequence && activeSequence->isActive)
-                        {
-                            activeSequence->Stop();
-                        }
-						PlayVideoOnLayer(matchIdx, fgTrack, fgActive, LayerType::Foreground, &cmd);
-                    }
-                }
-                break;
-            }
-
-			//SEQUENCE COMMAND:
-            case NetworkCommandType::PlaySequence:
-            {
-                std::cout << "[Main Thread] Processing deferred 'play_sequence' action: " << cmd.filename << std::endl;
-
-                // Check if a foreground track is actively displaying
-                if (fgActive && fgTrack && fgTrack->IsActive())
-                {
-                    std::cout << "[Main Thread] Foreground is active. Storing pending sequence and forcing fade out." << std::endl;
-
-                    pendingSeqCommand = cmd;
-                    hasPendingSeqCommand = true;
-
-                    // Stop any existing sequence logic running without clearing the pending flag
-                    if (activeSequence && activeSequence->isActive)
-                    {
-                        activeSequence->Stop();
-                    }
-
-                    // Force ONLY the current video track to fade out
-                    fgTrack->StartForcedFadeOut();
-                }
-                else
-                {
-                    // Clean start: nothing is occupying the foreground track layer
-                    hasPendingSeqCommand = false;
-                    if (activeSequence)
-                    {
-					    activeSequence->items[0].fadeInDuration = cmd.fadeInDuration;
-					    activeSequence->items[activeSequence->items.size() - 1].fadeOutDuration = cmd.fadeOutDuration;
-                        activeSequence->Stop();
-                        activeSequence->Play(cmd.looped);
-                    }
-                }
-                break;
-            }
-
-			//COVER VIDEO COMMAND:
-            case NetworkCommandType::PlayCover:
-            {
-                std::cout << "[Main Thread] Processing deferred 'play_cover' action: " << cmd.filename << std::endl;
-				int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
-                if (matchIdx != -1)
-                {
-                    if (coverActive && coverTrack && coverTrack->IsActive())
-                    {
-                        // If a cover is already playing, push the new one to pending and fade out the current one
-                        pendingCoverCommand = cmd;
-                        hasPendingCoverCommand = true;
-                        coverTrack->StartForcedFadeOut();
-                    }
-                    else
-                    {
-						PlayVideoOnLayer(matchIdx, coverTrack, coverActive, LayerType::Cover, &cmd);
-                    }
-                }
-                break;
-            }
-        }
-    }
-}
-
-void App::StopForegroundActivities()
-{
-    // Clear any pending video request if a global stop is called
-    hasPendingFGCommand = false;
-	hasPendingSeqCommand = false;
-	hasPendingCoverCommand = false;
-
-    if (activeSequence && activeSequence->isActive)
-    {
-        std::cout << "[Main Thread] Stopping active sequence: " << activeSequence->name << std::endl;
-        activeSequence->Stop();
-	}
-
-    if (fgActive && fgTrack)
-    {
-        fgTrack->StartForcedFadeOut();
-    }
-
-    if (coverActive && coverTrack)
-    {
-        coverTrack->StartForcedFadeOut();
-	}
-}
-
-void App::PlayVideoOnLayer(int videoSourceIdx, std::unique_ptr<VideoTrack>& targetTrack, bool& targetActiveFlag, const LayerType& layerType, DeferredCommand* cmd)
-{
-    if (videoSourceIdx < 0 || videoSourceIdx >= static_cast<int>(state.sources.size()))
-    {
-        std::cerr << "Invalid video source index for " << LayerTypeToStr(layerType) << ": " << videoSourceIdx << std::endl;
-        return;
-    }
-
-    std::cout << "[Main Thread] Swapping " << LayerTypeToStr(layerType) << " layer video to index: "
-        << videoSourceIdx << " (" << state.sources[videoSourceIdx]->filename << ")" << std::endl;
-
-	//Update the video source properties based on the command parameters if provided
-    if (cmd)
-    {
-        state.sources[videoSourceIdx]->fadeInDuration = cmd->fadeInDuration;
-        state.sources[videoSourceIdx]->fadeOutDuration = cmd->fadeOutDuration;
-        state.sources[videoSourceIdx]->looped = cmd->looped;
-    }
-
-	//Set initial alpha to 0 for fade-in effect
-    state.sources[videoSourceIdx]->alpha = 0.0f;
-
-    // Dynamically update the passed track unique_ptr pointer structure
-    targetTrack = std::make_unique<VideoTrack>(state.sources[videoSourceIdx]);
-    targetTrack->SetBlending(true);
-    targetTrack->Rewind();
-    targetTrack->Play(GetTimeStd());
-
-    // Force wrapper synchronization status explicitly
-    targetTrack->SetActive(true);
-
-    // Bootstrap first frame mapping context
-    ID3D11DeviceContext* ctx = renderer->GetContext();
-    state.sources[videoSourceIdx]->GetNextFrame(ctx);
-
-    if (state.sources[videoSourceIdx]->isFadingIn)
-    {
-        state.sources[videoSourceIdx]->ComputeFadeIn();
-    }
-    else if (state.sources[videoSourceIdx]->fadeInDuration > 0.0f)
-    {
-        state.sources[videoSourceIdx]->alpha = 0.0f;
-    }
-
-    // Toggle the specific layer visibility state flag on
-    targetActiveFlag = true;
 }
 
 LRESULT App::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)

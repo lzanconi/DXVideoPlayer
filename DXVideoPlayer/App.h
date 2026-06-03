@@ -12,6 +12,7 @@ class VideoSource;
 class ContentManager;
 class DXShader;
 class NetworkManager;
+class PlaybackManager;
 class Sequence;
 struct AVBufferRef;
 struct AVPacket;
@@ -29,6 +30,7 @@ private:
 	bool fgActive = false;
 	bool coverActive = false;
 	int clientSocket = -1;	
+	PlaybackManager* playbackMgr = nullptr;
 	ContentManager* contentMgr = nullptr;
 	IRenderer* renderer = nullptr;
 	DXShader* videoShader = nullptr;
@@ -41,30 +43,6 @@ private:
 	// Stores window position before going fullscreen
 	RECT windowRect = { 0 };
 	WINDOWPLACEMENT windowPlacement = { sizeof(WINDOWPLACEMENT) };
-
-	std::unique_ptr<VideoTrack> bgTrack;
-	std::unique_ptr<VideoTrack> fgTrack;
-	std::unique_ptr<VideoTrack> coverTrack;
-
-	//Single foreground video pending command
-	bool hasPendingFGCommand = false;
-	DeferredCommand pendingFGCommand;
-
-	//Sequence pending command
-	bool hasPendingSeqCommand = false;
-	DeferredCommand pendingSeqCommand;
-
-	//Cover pending command
-	bool hasPendingCoverCommand = false;
-	DeferredCommand pendingCoverCommand;
-
-	//Deferred command queue and mutex for thread-safe communication between the NetworkManager thread and the main thread
-	std::queue<DeferredCommand> commandQueue;
-
-	//Mutex to protect access to the command queue when enqueuing commands from the NetworkManager thread and processing them in the main thread
-	std::mutex queueMutex;
-
-	Sequence* activeSequence = nullptr;	
 
 public:
 	App(int width, int height);
@@ -81,14 +59,10 @@ public:
 	AppState& GetAppState() override;
 	void SetClientSocket(int socket) override;
 	void HandleNetworkCommand(const std::string& jsonStr) override;
-	void TriggerSequenceItem(const DeferredCommand& cmd) override;
+	void TriggerSequenceItem(DeferredCommand& cmd) override;
 
 private:
 	void LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context);
-	void InitVideoTracks();
-	void ProcessDeferredCommands();
-	void StopForegroundActivities();
-	void PlayVideoOnLayer(int videoSourceIdx, std::unique_ptr<VideoTrack>& targetTrack, bool& targetActiveFlag, const LayerType& layerType, DeferredCommand* cmd = nullptr);
 	static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 	LRESULT HandleMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 	void ToggleFullscreen(HWND hwnd);
