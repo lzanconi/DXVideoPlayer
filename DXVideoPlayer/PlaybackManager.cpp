@@ -29,6 +29,8 @@ void PlaybackManager::InitializeVideoTracks()
 	foregroundTrack->SetBlending(true);
 	coverTrack->SetBlending(true);
 
+	backgroundActive = true;
+
 	//Starts the playback of the background track immediately without any fade-in effect, using the current time as the starting point for synchronization.
 	backgroundTrack->Play(GetTimeStd());
 
@@ -83,6 +85,11 @@ void PlaybackManager::UpdateLayers(ID3D11DeviceContext* context)
 
 	//Decodes the next video frame for the active tracks (background always, foreground and cover if active), updates alpha values and updates their textures for rendering in PHASE 2
 	DecodeVideoFrameTextures(context);
+	
+	if (backgroundActive && backgroundTrack && !backgroundTrack->IsActive())
+	{
+		backgroundActive = false;
+	}
 
 	if (backgroundTrack && !backgroundTrack->IsActive())
 	{
