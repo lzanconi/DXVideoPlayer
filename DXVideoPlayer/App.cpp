@@ -185,6 +185,11 @@ AppState& App::GetAppState()
 	return state;
 }
 
+Config& App::GetConfig()
+{
+	return configMgr->config;  
+}
+
 void App::SetClientSocket(int socket)
 {
 	clientSocket = socket;

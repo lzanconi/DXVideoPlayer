@@ -15,6 +15,7 @@ public:
     virtual double GetLastPTS() = 0;
     virtual int64_t GetBGCaptureTimeNS() = 0;
 	virtual AppState& GetAppState() = 0;
+	virtual Config& GetConfig() = 0;
     virtual void SetClientSocket(int socket) = 0;
     virtual void HandleNetworkCommand(const std::string& jsonStr) = 0;
 };

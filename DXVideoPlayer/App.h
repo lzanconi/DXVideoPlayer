@@ -59,6 +59,7 @@ public:
 	double GetLastPTS() override;
 	int64_t GetBGCaptureTimeNS() override;
 	AppState& GetAppState() override;
+	Config& GetConfig() override;
 	void SetClientSocket(int socket) override;
 	void HandleNetworkCommand(const std::string& jsonStr) override;
 
