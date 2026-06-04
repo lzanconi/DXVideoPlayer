@@ -482,6 +482,17 @@ void PlaybackManager::ProcessDeferredCommands()
 
 				if (matchIdx != -1)
 				{
+					if (foregroundActive && foregroundTrack && foregroundTrack->IsActive())
+					{
+						std::cout << "[PlaybackManager] Background event video active on foreground layer. Forcing fade out." << std::endl;
+						foregroundTrack->StartForcedFadeOut();
+					}
+
+					if (activeSequence && activeSequence->isActive)
+					{
+						activeSequence->Stop();
+					}
+
 					if (backgroundTrack && backgroundTrack->IsActive())
 					{
 						pendingBackgroundCmd = cmd;
