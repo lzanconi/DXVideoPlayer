@@ -348,6 +348,14 @@ bool VideoSource::ComputeForcedFadeOut()
     if (!isForcedFadingOut) 
         return false;
 
+    if (fadeOutDuration <= 0.0f)
+    {
+        alpha = 0.0f;
+        isFadingOut = false;
+        isForcedFadingOut = false;
+        return true;
+    }
+
     float fadeOutTime = 1.0f;
     if (fadeOutDuration > 0.0f)
 		fadeOutTime = fadeOutDuration;
