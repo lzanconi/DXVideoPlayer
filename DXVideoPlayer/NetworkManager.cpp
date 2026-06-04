@@ -10,8 +10,8 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
-NetworkManager::NetworkManager(const std::string& serverIP, int serverPort, IApp* appInterface)
-    : serverIP(serverIP), serverPort(serverPort), appInterface(appInterface), clientRunning(false), serverRunning(false)
+NetworkManager::NetworkManager(IApp* appInterface)
+    : appInterface(appInterface)
 {
 }
 
@@ -106,12 +106,17 @@ void NetworkManager::RunClient()
             activeClientSocket = clientSocket;
         }
 
+		Config config = appInterface->GetConfig();
         sockaddr_in serverAddr;
         serverAddr.sin_family = AF_INET;
-        serverAddr.sin_port = htons(serverPort);
-        inet_pton(AF_INET, serverIP.c_str(), &serverAddr.sin_addr);
+        /*serverAddr.sin_port = htons(serverPort);
+        inet_pton(AF_INET, serverIP.c_str(), &serverAddr.sin_addr);*/
+		serverAddr.sin_port = htons(config.target_port);
+		inet_pton(AF_INET, config.target_ip.c_str(), &serverAddr.sin_addr);
 
-        std::cout << "[Network Client] Attempting to connect to server at " << serverIP << ":" << serverPort << "..." << std::endl;
+
+        //std::cout << "[Network Client] Attempting to connect to server at " << serverIP << ":" << serverPort << "..." << std::endl;
+		std::cout << "[Network Client] Attempting to connect to server at " << config.target_ip << ":" << config.target_port << "..." << std::endl;
         if (connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
         {
             std::lock_guard<std::mutex> lock(clientSocketMutex);
@@ -124,7 +129,7 @@ void NetworkManager::RunClient()
             continue;
         }
 
-        std::cout << "NetworkManager: Client connected to Position Server." << std::endl;
+        std::cout << "[Network Client]: Client connected to Position Server." << std::endl;
         HandlePositionSend(clientSocket);
 
         {
@@ -139,11 +144,19 @@ void NetworkManager::RunClient()
 
 void NetworkManager::HandlePositionSend(SOCKET socket)
 {
-    auto period_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+    /*auto period_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::duration<double>(1.0 / positions_framerate)
-    );
-
+    );*/
+    auto period_duration = std::chrono::milliseconds(appInterface->GetConfig().send_period_ms);
+	char msg_buffer[64];
+	float last_known_position = 0.0f;
+	double scale = appInterface->GetConfig().positions_scale;   
+	double offset = appInterface->GetConfig().positions_offset;
+    float brakeAcceleration = 200.0;
     auto next_frame = std::chrono::steady_clock::now() + period_duration;
+	float previousSentPosition = 0.0f;
+    double current_speed = 0.0f;
+	positions_delay_ms = appInterface->GetConfig().positions_delay_ms;
 
     while (clientRunning)
     {
@@ -153,10 +166,17 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
         if (time_left.count() > 2)
             std::this_thread::sleep_for(time_left - std::chrono::milliseconds(2));
 
-        while (std::chrono::steady_clock::now() < next_frame) {}
+        while (std::chrono::steady_clock::now() < next_frame) 
+        {
+			//Spin until it's time for the next frame
+        }
 
         auto trigger_time = std::chrono::steady_clock::now();
         int64_t trigger_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(trigger_time.time_since_epoch()).count();
+
+        float pos_value = 0.0f;
+        double progress_pct = 0.0;
+
 
         std::vector<float> positions = appInterface->GetPositions();
         double last_video_time = appInterface->GetLastPTS();
@@ -197,13 +217,17 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
         float val0 = positions[idx0];
         float val1 = positions[idx1];
 
-        float calculated_csv_pos = (float)(val0 * (1.0 - frac) + val1 * frac);
+        float calculated_csv_pos = (float)(val0 * (1.0 - frac) + val1 * frac) * scale + offset;
 
-        char buffer[128];
-        int len = snprintf(buffer, sizeof(buffer), "{\"positions\":[%.4f]}", calculated_csv_pos);
+        int len = snprintf(msg_buffer, sizeof(msg_buffer), "{\"positions\":[%.4f]}", calculated_csv_pos);
+        for (int i = 0; i < len; i++)
+        {
+            if (msg_buffer[i] == ',')
+                msg_buffer[i] = '.';
+        }
 
         if (len > 0) {
-            if (send(socket, buffer, len + 1, 0) == -1)
+            if (send(socket, msg_buffer, len + 1, 0) == -1)
             {
                 std::cout << "[Network Client] Connection lost." << std::endl;
                 break;

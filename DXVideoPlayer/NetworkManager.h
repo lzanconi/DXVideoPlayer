@@ -17,9 +17,6 @@ class IApp;
 class NetworkManager
 {
 private:
-	std::string serverIP;
-	int serverPort;
-
 	// Client components
 	std::thread clientThread;
 	std::atomic<bool> clientRunning;
@@ -29,8 +26,8 @@ private:
 	// Server components
 	std::thread serverThread;
 	std::atomic<bool> serverRunning;
-	SOCKET listenSocket = (SOCKET)-1;       // Track listener socket to unblock accept() instantly
-	std::mutex serverSocketMutex;           // Protects listenSocket access across threads
+	SOCKET listenSocket = (SOCKET)-1;
+	std::mutex serverSocketMutex;
 	int listenPort = 22345;
 
 	// Configuration for position sending
@@ -40,7 +37,7 @@ private:
 	IApp* appInterface;
 
 public:
-	NetworkManager(const std::string& serverIP, int serverPort, IApp* appInterface);
+	NetworkManager(IApp* appInterface);
 	~NetworkManager();
 
 	void Start();

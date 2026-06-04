@@ -55,7 +55,7 @@ App::App(int width, int height)
 	ShowWindow(window, SW_SHOW);
 	ToggleFullscreen(window);
 
-    state.networkMgr = new NetworkManager("127.0.0.1", 5555, this);
+    state.networkMgr = new NetworkManager(this);
 	state.networkMgr->Start();
 }
 
