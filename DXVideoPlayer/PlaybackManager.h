@@ -61,6 +61,7 @@ public:
 	void ResetCoverLayer();
 
 	void HandlePendingBackgroundCmd(AppState& state);
+	void HandleBackgroundEvents();
 	void HandlePendingForegroundCmd(AppState& state);
 	void HandleSequenceShutdown();
 	void HandlePendingCoverCmd(AppState& state);

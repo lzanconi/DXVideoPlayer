@@ -13,6 +13,7 @@ struct ID3D11Texture2D;
 struct ID3D11ShaderResourceView;
 struct ID3D11Device;
 struct ID3D11DeviceContext;
+struct BackgroundEvent;
 
 class VideoSource
 {
@@ -43,7 +44,7 @@ public:
     std::atomic<int64_t> bg_capture_time_ns;
     std::vector<float> positions;
     std::string filename;
-
+	std::vector<BackgroundEvent> events;
 public:
 	VideoSource() = default;
     ~VideoSource();

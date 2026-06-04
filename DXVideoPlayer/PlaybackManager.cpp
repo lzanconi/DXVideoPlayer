@@ -85,6 +85,8 @@ void PlaybackManager::UpdateLayers(ID3D11DeviceContext* context)
 
 	//Decodes the next video frame for the active tracks (background always, foreground and cover if active), updates alpha values and updates their textures for rendering in PHASE 2
 	DecodeVideoFrameTextures(context);
+
+	HandleBackgroundEvents();
 	
 	HandlePendingBackgroundCmd(state);
 
@@ -158,6 +160,68 @@ void PlaybackManager::HandlePendingBackgroundCmd(AppState& state)
 			if (matchIdx != -1)
 			{
 				PlayTrackOnLayer(matchIdx, backgroundTrack, backgroundActive, LayerType::Background, &pendingBackgroundCmd);
+			}
+		}
+	}
+}
+
+void PlaybackManager::HandleBackgroundEvents()
+{
+	if (!backgroundTrack || !backgroundTrack->IsActive()) return;
+
+	VideoSource* bgSource = backgroundTrack->GetSource();
+	if (!bgSource) return;
+
+	double currentPlayhead = bgSource->internalPTS;
+	AppState& state = appInterface->GetAppState();
+
+	for (auto& evt : bgSource->events)
+	{
+		// Trigger condition: if the playhead passes the start time on this loop execution pass
+		if (!evt.triggered && currentPlayhead >= evt.startTime)
+		{
+			// Only trigger if we are within a reasonable timeline window of the event (e.g., within 1.0 second of its scheduled slot)
+			// This prevents old events from misfiring if there's a slow frame tick exactly during the loop boundary transition
+			if (currentPlayhead <= (evt.startTime + 1.0))
+			{
+				evt.triggered = true;
+
+				int matchIdx = FindVideoSourceIndexByFilename(evt.filename, state.sources);
+				if (matchIdx != -1)
+				{
+					DeferredCommand cmd;
+					cmd.type = NetworkCommandType::PlayForeground;
+					cmd.filename = evt.filename;
+					cmd.fadeInDuration = evt.fadeInDuration;
+					cmd.fadeOutDuration = evt.fadeOutDuration;
+					cmd.looped = false;
+
+					std::cout << "[Timeline Event] Firing foreground layer item: " << evt.filename
+						<< " at playhead pos: " << currentPlayhead << "s" << std::endl;
+
+					PlayTrackOnLayer(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
+				}
+			}
+		}
+	}
+
+	// Process Active Event Duration Limit Boundaries
+	if (foregroundActive && foregroundTrack && foregroundTrack->IsActive())
+	{
+		VideoSource* fgSource = foregroundTrack->GetSource();
+		if (fgSource)
+		{
+			for (const auto& evt : bgSource->events)
+			{
+				if (evt.filename == fgSource->filename && evt.triggered)
+				{
+					if (fgSource->internalPTS >= evt.duration && !fgSource->isFadingOut)
+					{
+						std::cout << "[Timeline Event] Duration reached for " << evt.filename
+							<< ". Injecting automatic fade out." << std::endl;
+						foregroundTrack->StartForcedFadeOut();
+					}
+				}
 			}
 		}
 	}

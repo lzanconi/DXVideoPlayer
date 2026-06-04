@@ -15,6 +15,16 @@ struct AppState
     NetworkManager* networkMgr = nullptr;
  };
 
+struct BackgroundEvent
+{
+    std::string filename;
+    float startTime = 0.0f;
+    float fadeInDuration = 1.0f;
+    float fadeOutDuration = 1.0f;
+    float duration = 0.0f;
+    bool triggered = false;
+};
+
 struct VideoContent
 {
     //Path to the .mp4 file
@@ -27,6 +37,7 @@ struct VideoContent
     bool looped = false;
     //Optional position data loaded from a corresponding .csv file
     std::vector<float> positions;
+    std::vector<BackgroundEvent> events;
 };
 
 enum class VideoTrackState

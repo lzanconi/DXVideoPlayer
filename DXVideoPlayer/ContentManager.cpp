@@ -73,6 +73,17 @@ void ContentManager::LoadVideoContents(const std::string& folderPath)
                     LoadCSVPositions(content, csvPath.string());
                 }
 
+				//Creates a potential path for a matching events text file by appending "-events" to the base name
+                fs::path eventsPath = entry.path();
+                std::string baseName = eventsPath.stem().string();
+                eventsPath.replace_filename(baseName + "-events.txt");
+
+                if (fs::exists(eventsPath))
+                {
+                    std::cout << "ContentManager: Found matching events file for " << entry.path().filename() << std::endl;
+                    LoadBackgroundEvents(eventsPath.string(), content);
+                }
+
                 //Adds the fully prepared video metadata to the list
                 videoContents.push_back(content);
             }
@@ -154,6 +165,57 @@ void ContentManager::LoadCSVPositions(VideoContent& content, const std::string& 
             catch (...) {
                 // Skip invalid numeric entries
             }
+        }
+    }
+}
+
+void ContentManager::LoadBackgroundEvents(const std::string& filePath, VideoContent& content)
+{
+    std::ifstream file(filePath);
+    if (!file.is_open()) 
+        return;
+
+    content.events.clear();
+    std::string line;
+
+    while (std::getline(file, line))
+    {
+        // Ignore empty lines or comment lines
+        if (line.empty() || line[0] == '#') continue;
+
+        std::stringstream ss(line);
+        std::string token;
+        BackgroundEvent evt;
+
+        // Parse key-value pairs split by commas: file=3.mp4, start-time=17.00 ...
+        while (std::getline(ss, token, ','))
+        {
+            // Simple trim lambda
+            token.erase(0, token.find_first_not_of(" \t\r\n"));
+            token.erase(token.find_last_not_of(" \t\r\n") + 1);
+
+            size_t eqIdx = token.find('=');
+            if (eqIdx == std::string::npos) 
+                continue;
+
+            std::string key = token.substr(0, eqIdx);
+            std::string val = token.substr(eqIdx + 1);
+
+            if (key == "file")             
+                evt.filename = val;
+            else if (key == "start-time")    
+                evt.startTime = std::stof(val);
+            else if (key == "fade-in-time")  
+                evt.fadeInDuration = std::stof(val);
+            else if (key == "fade-out-time") 
+                evt.fadeOutDuration = std::stof(val);
+            else if (key == "duration")      
+                evt.duration = std::stof(val);
+        }
+
+        if (!evt.filename.empty())
+        {
+            content.events.push_back(evt);
         }
     }
 }

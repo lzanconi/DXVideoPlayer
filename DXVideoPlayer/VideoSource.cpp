@@ -184,6 +184,13 @@ bool VideoSource::GetNextFrame(ID3D11DeviceContext* context)
                 Rewind();
 				//Restarts the playback timer to ensure seamless looping without timing glitches
                 Play(GetTimeStd());
+
+				//Reset the triggered state of all background events to allow them to be triggered again in the new loop cycle
+                for (auto& evt : events)
+                {
+                    evt.triggered = false;
+                }
+
 				//Marks that a frame was successfully decoded to allow the rendering loop to continue without interruption during the loop transition.
                 frameDecoded = true;
             }
@@ -230,6 +237,11 @@ void VideoSource::Rewind()
     isFadingIn = false;
     hasMovedPastStart = false;
     alpha = 1.0f;
+
+    for (auto& evt : events)
+    {
+        evt.triggered = false;
+    }
 }
 
 void VideoSource::StartFadeIn(float fadeInTime)

@@ -48,7 +48,6 @@ App::App(int width, int height)
 
 	contentMgr->LoadSequences(".\\Videos", playbackMgr);
 
-	
 	ShowWindow(window, SW_SHOW);
 	ToggleFullscreen(window);
 
@@ -338,6 +337,7 @@ void App::LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context)
             videoSource->fadeOutDuration = videoContent.fadeOutDuration;
             videoSource->looped = videoContent.looped;
             videoSource->positions = videoContent.positions;
+			videoSource->events = videoContent.events;
             state.sources.push_back(videoSource);
         }
         else
