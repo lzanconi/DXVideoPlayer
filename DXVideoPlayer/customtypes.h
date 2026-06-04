@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <map>
 
 class VideoSource;
 class IRenderer;
@@ -14,6 +15,30 @@ struct AppState
     IRenderer* renderer = nullptr;
     NetworkManager* networkMgr = nullptr;
  };
+
+struct TargetPosition {
+    float position;
+    std::string foreground;
+    std::string background;
+    float fade_in_seconds = 0.0f;
+};
+
+struct Config
+{
+    std::string assets_path = "./assets";
+    std::string target_ip = "127.0.0.1";
+    int target_port = 15555;
+    int control_port = 12345;
+    double positions_framerate = 60.0;
+    int send_period_ms = 40;
+    int render_delay_ms = 100;
+    int positions_delay_ms = 100;
+    int autorun_id = -1;
+    double positions_scale = 1.0;
+    double positions_offset = 0.0;
+    std::string autorun_filename = "";
+    std::map<std::string, TargetPosition> target_positions;
+};
 
 struct BackgroundEvent
 {

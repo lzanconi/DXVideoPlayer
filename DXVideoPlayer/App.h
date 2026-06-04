@@ -13,6 +13,7 @@ class ContentManager;
 class DXShader;
 class NetworkManager;
 class PlaybackManager;
+class ConfigManager;	
 class Sequence;
 struct AVBufferRef;
 struct AVPacket;
@@ -32,6 +33,7 @@ private:
 	int clientSocket = -1;	
 	PlaybackManager* playbackMgr = nullptr;
 	ContentManager* contentMgr = nullptr;
+	ConfigManager* configMgr = nullptr;	
 	IRenderer* renderer = nullptr;
 	DXShader* videoShader = nullptr;
 	AVBufferRef* hw_ctx;

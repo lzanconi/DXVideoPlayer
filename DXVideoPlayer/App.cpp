@@ -6,6 +6,7 @@
 #include "utils.h"
 #include "NetworkManager.h"
 #include "ContentManager.h"
+#include "ConfigManager.h"  
 #include <iostream>
 #include <json.hpp>
 #include "Sequence.h"
@@ -18,6 +19,9 @@ AppState App::state;
 
 App::App(int width, int height)
 {
+	configMgr = new ConfigManager();
+	configMgr->LoadConfig(".\\conf.json"); 
+
     contentMgr = new ContentManager(this);
     contentMgr->LoadContentsFromFolder(".\\Videos");
 
@@ -57,6 +61,9 @@ App::App(int width, int height)
 
 App::~App()
 {
+    if (configMgr)
+		delete configMgr;
+
     if (playbackMgr)
 		delete playbackMgr;
 

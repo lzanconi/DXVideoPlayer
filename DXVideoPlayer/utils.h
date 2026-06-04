@@ -1,4 +1,5 @@
 #pragma once
+#include <windows.h>
 #include <string>
 #include <vector>
 #include <chrono>
@@ -83,3 +84,36 @@ inline int FindVideoSourceIndexByFilename(const std::string& filename, const std
 
 	return matchIdx;
 }
+
+inline void TrimString(std::string& s)
+{
+    s.erase(0, s.find_first_not_of(" \t"));
+    auto pos = s.find_last_not_of(" \t");
+    if (pos != std::string::npos) 
+    {
+        s.erase(pos + 1);
+    }
+    else 
+    {
+        s.clear();
+    }
+}
+
+inline void SetEnvVar(const std::string& key, const std::string& value)
+{
+    _putenv_s(key.c_str(), value.c_str());
+}
+
+inline std::string GetEnvVar(const std::string& key)
+{
+    char* buf = nullptr;
+    size_t sz = 0;
+
+    // Windows secure version
+    if (_dupenv_s(&buf, &sz, key.c_str()) == 0 && buf != nullptr) {
+        std::string result(buf);
+        free(buf); // _dupenv_s requires manual freeing of the allocated buffer
+        return result;
+    }
+    return "";
+}   

@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="App.cpp" />
+    <ClCompile Include="ConfigManager.cpp" />
     <ClCompile Include="ContentManager.cpp" />
     <ClCompile Include="DXRenderer.cpp" />
     <ClCompile Include="DXShader.cpp" />
@@ -34,6 +35,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h" />
+    <ClInclude Include="ConfigManager.h" />
     <ClInclude Include="ContentManager.h" />
     <ClInclude Include="customtypes.h" />
     <ClInclude Include="DXRenderer.h" />
