@@ -326,6 +326,18 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
             responseMessage = "{\"status\":\"acknowledged\",\"command\":\"play_cover\"}";
         }
 
+		//HIDE COVER COMMAND:
+        if (j.contains("hide_cover"))
+        {
+            cmd.type = NetworkCommandType::HideCover;
+
+            // Safely enqueue the command with thread protection
+            playbackMgr->EnqueueNetworkCommand(cmd);
+
+            commandProcessed = true;
+            responseMessage = "{\"status\":\"acknowledged\",\"command\":\"hide_cover\"}";
+        }
+
         //If the command was successfully parsed and recognized, send an acknowledgment response back to the client
         if (clientSocket > 0 && commandProcessed)
         {
