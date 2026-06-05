@@ -632,7 +632,7 @@ void PlaybackManager::ProcessDeferredCommands()
 				transitionMode = true;
 				std::string filename = GetNameFromFile(cmd.filename);
 				auto targetPosition = config.target_positions[filename];
-
+				transitionTargetPosition = targetPosition.position;
 			}
 		}
 	}

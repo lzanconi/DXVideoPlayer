@@ -138,3 +138,9 @@ template <typename T>
 inline int GetMovementDirection(T val) {
     return (T(0) < val) - (val < T(0));
 }
+
+// Smoothstep function for smooth interpolation, often used for easing in/out transitions. It takes a time value between 0 and 1 and returns a smoothed value that starts at 0, ends at 1, and has a smooth curve in between.
+inline float smoothStep(double time)
+{
+    return time * time * (3.0 - 2.0 * time);
+}

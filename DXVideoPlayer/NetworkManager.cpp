@@ -283,7 +283,58 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
 
                 if (newSpeed == 0)
                 {
+					current_speed = 0.0;
 					playbackMgr->stopping = false;
+
+                    //COMPUTE DURATION
+                    // 1. Record the exact position where the braking finished
+					playbackMgr->transitionStartPosition = pos_value;
+                    playbackMgr->transitionStartTime = std::chrono::steady_clock::now();
+                    
+                    // 2. Calculate the distance left to travel
+                    float distanceToTravel = std::abs(playbackMgr->transitionTargetPosition - playbackMgr->transitionStartPosition);
+
+                    // 3. Define a comfortable average speed (e.g., units per millisecond)
+                    float desiredAverageSpeed = 200.0;
+
+                    // 4. Calculate the duration dynamically (in milliseconds)
+                    if (desiredAverageSpeed > 0.0f) 
+                    {
+                        playbackMgr->transitionDuration = (distanceToTravel / desiredAverageSpeed) * 1000.0; // convert to milliseconds
+                    }
+                    else 
+                    {
+                        playbackMgr->transitionDuration = 10000.0; // Fallback to 10 second to avoid divide-by-zero
+                    }
+
+                    //Clamp the transitionDuration so it doesn't take an eternity or happen too fast
+                    if (playbackMgr->transitionDuration < 500.0) 
+                        playbackMgr->transitionDuration = 500.0;   // Minimum 0.5s
+                    if (playbackMgr->transitionDuration > 20000.0) 
+                        playbackMgr->transitionDuration = 20000.0; // Maximum 20.0s
+                }
+            }
+            //PHASE 2 - MOVE TO A DESIRED POSITION
+            else
+            {
+                auto time_passed = std::chrono::duration_cast<std::chrono::milliseconds>(now - playbackMgr->transitionStartTime);
+                double percentage = (double)time_passed.count() / playbackMgr->transitionDuration;
+
+                if (percentage >= 1.0)
+                {
+                    percentage = 1.0;
+                    playbackMgr->transitionMode = false;
+                    std::cout << "### MOVE FINISHED @ " << playbackMgr->transitionTargetPosition << std::endl;
+                }
+
+                double smooth_perc = smoothStep(percentage);
+                pos_value = (float)(playbackMgr->transitionStartPosition * (1.0 - smooth_perc) + playbackMgr->transitionTargetPosition * smooth_perc);
+                progress_pct = percentage;
+
+                static int log_cnt = 0;
+                if (log_cnt++ % 12 == 0) {
+					std::cout << "### TRANSITION: " << playbackMgr->transitionStartPosition << " -> " << playbackMgr->transitionTargetPosition
+                        << " | P: " << (int)(percentage * 100) << "% | VEL/s: " << (int)current_speed << std::endl;
                 }
             }
         }
