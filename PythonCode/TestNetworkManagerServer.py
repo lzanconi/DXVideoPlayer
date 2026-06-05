@@ -203,6 +203,10 @@ class JSONSenderApp:
         # Send Button
         tk.Button(seq_frame, text="Send Sequence", 
                   command=self._send_play_sequence, width=22).grid(row=2, column=1, columnspan=3, pady=10)
+        
+        #Hide Cover Button
+        tk.Button(cover_frame, text="Hide Cover", 
+                  command=self._send_hide_cover, width=18, bg="#FFCCCC").grid(row=3, column=1, columnspan=3, pady=5)
 
         # Terminal display box for incoming server messages
         terminal_frame = tk.LabelFrame(self.master, text="Server Responses (Incoming Data)", padx=10, pady=5)
@@ -392,6 +396,11 @@ class JSONSenderApp:
         }
         self._send_json_via_socket(message_dict)
     
+    def _send_hide_cover(self):
+        print("DEBUG: Preparing to send Hide Cover command...")
+        message_dict = {"hide_cover": ""}
+        self._send_json_via_socket(message_dict)
+
     def _send_transition_to(self):
         filename = self.filename_trans_var.get()
         fade_in = self._validate_float_input(self.fade_in_trans_var, "Transition Fade In")
