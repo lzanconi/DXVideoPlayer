@@ -447,6 +447,18 @@ void PlaybackManager::ForceStopForegroundLayers()
 	}
 }
 
+void PlaybackManager::ForceStopBackgroundLayer()
+{
+	// Clear any pending commands queued to start a new background video
+	hasPendingBackgroundCmd = false;
+
+	// If the background track is actively rendering, command its underlying source to start a forced fade-out
+	if (backgroundActive && backgroundTrack)
+	{
+		backgroundTrack->StartForcedFadeOut();
+	}
+}
+
 void PlaybackManager::EnqueueNetworkCommand(const DeferredCommand& cmd)
 {
 	std::lock_guard<std::mutex> lock(queueMutex);
@@ -474,6 +486,7 @@ void PlaybackManager::ProcessDeferredCommands()
 			case NetworkCommandType::Stop:
 			{
 				std::cout << ">>> [PlaybackManager] Processing deferred 'stop' action." << std::endl;
+				ForceStopBackgroundLayer();
 				ForceStopForegroundLayers();
 				break;
 			}

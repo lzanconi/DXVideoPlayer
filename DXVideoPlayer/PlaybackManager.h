@@ -77,6 +77,7 @@ public:
 	//PHASE 2 Methods (Direct3D rendering)
 	void RenderLayers(float winW, float winH);
 	void ForceStopForegroundLayers();
+	void ForceStopBackgroundLayer();
 
 	void EnqueueNetworkCommand(const DeferredCommand& cmd);
 	void ProcessDeferredCommands();
