@@ -55,6 +55,8 @@ void ConfigManager::LoadConfig(const fs::path& filePath)
             config.autorun_filename = j["autorun"].get<std::string>();
         if (j.contains("autorun_id"))
             config.autorun_id = j["autorun_id"].get<int>();
+        if (j.contains("cover_filename"))
+            config.cover_filename = j["cover_filename"].get<std::string>();
 
         if (j.contains("target_positions") && j["target_positions"].is_object()) {
             config.target_positions.clear();

@@ -27,6 +27,7 @@ struct Config
 {
     std::string assets_path = "./assets";
     std::string target_ip = "127.0.0.1";
+    std::string cover_filename = "Cover.mp4";
     int target_port = 15555;
     int control_port = 12345;
     double positions_framerate = 60.0;
