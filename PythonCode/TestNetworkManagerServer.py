@@ -76,6 +76,10 @@ class JSONSenderApp:
         self.fade_in_trans_new_var = tk.StringVar(value="0.0")
         self.loop_trans_new_var = tk.BooleanVar(value=False)
 
+        # --- Checkbox States for Optional Elements ---
+        self.include_fg_var = tk.BooleanVar(value=True)
+        self.include_bg_var = tk.BooleanVar(value=True)
+
         self.feedback_var = tk.StringVar(value="Ready.")
 
         # --- Setup the UI ---
@@ -93,13 +97,13 @@ class JSONSenderApp:
         except Exception:
             return ["No Files Found (Error)"]
 
-    def _create_filename_dropdown(self, parent_frame, row, col, textvariable, file_source):
+    def _create_filename_dropdown(self, parent_frame, row, col, textvariable, file_source, columnspan=3):
         if file_source and file_source[0].startswith("No Files Found"):
-            tk.Entry(parent_frame, textvariable=textvariable, width=30, state='readonly').grid(row=row, column=col, columnspan=3, padx=5, pady=5, sticky="ew")
+            tk.Entry(parent_frame, textvariable=textvariable, width=30, state='readonly').grid(row=row, column=col, columnspan=columnspan, padx=5, pady=5, sticky="ew")
         else:
             menu = tk.OptionMenu(parent_frame, textvariable, *file_source)
-            menu.config(width=28)
-            menu.grid(row=row, column=col, columnspan=3, padx=5, pady=5, sticky="ew")
+            menu.config(width=25 if columnspan==2 else 28)
+            menu.grid(row=row, column=col, columnspan=columnspan, padx=5, pady=5, sticky="ew")
 
     def _create_widgets(self):
         # Configuration Frame
@@ -197,18 +201,30 @@ class JSONSenderApp:
         tk.Button(cover_frame, text="Send Cover Command", command=self._send_play_cover, width=18).grid(row=2, column=1, columnspan=3, pady=10)
         tk.Button(cover_frame, text="Hide Cover", command=self._send_hide_cover, width=18, bg="#FFCCCC").grid(row=3, column=1, columnspan=3, pady=5)
 
-        # Transition To (New Section)
+        # Transition To
         trans_new_frame = tk.LabelFrame(commands_frame, text="Transition To", padx=5, pady=5)
         trans_new_frame.pack(padx=10, pady=5, fill="x")
+        
+        # Row 0: Filename
         tk.Label(trans_new_frame, text="Filename:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self._create_filename_dropdown(trans_new_frame, 0, 1, self.filename_trans_new_var, self.file_list)
+        self._create_filename_dropdown(trans_new_frame, 0, 1, self.filename_trans_new_var, self.file_list, columnspan=2)
+        
+        # Row 1: Foreground List + Activation Checkbox
         tk.Label(trans_new_frame, text="Foreground:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
-        self._create_filename_dropdown(trans_new_frame, 1, 1, self.foreground_trans_var, self.file_list)
+        self._create_filename_dropdown(trans_new_frame, 1, 1, self.foreground_trans_var, self.file_list, columnspan=2)
+        tk.Checkbutton(trans_new_frame, text="Include", variable=self.include_fg_var).grid(row=1, column=3, padx=5, pady=5, sticky="w")
+
+        # Row 2: Background List + Activation Checkbox
         tk.Label(trans_new_frame, text="Background:").grid(row=2, column=0, padx=5, pady=5, sticky="w")
-        self._create_filename_dropdown(trans_new_frame, 2, 1, self.background_trans_var, self.file_list)
+        self._create_filename_dropdown(trans_new_frame, 2, 1, self.background_trans_var, self.file_list, columnspan=2)
+        tk.Checkbutton(trans_new_frame, text="Include", variable=self.include_bg_var).grid(row=2, column=3, padx=5, pady=5, sticky="w")
+
+        # Row 3: Durations
         tk.Label(trans_new_frame, text="Fade In (s):").grid(row=3, column=0, padx=5, pady=5, sticky="w")
         tk.Entry(trans_new_frame, textvariable=self.fade_in_trans_new_var, width=10).grid(row=3, column=1, padx=5, pady=5, sticky="w")
         tk.Checkbutton(trans_new_frame, text="Loop", variable=self.loop_trans_new_var).grid(row=3, column=2, padx=10, pady=5, sticky="w")
+        
+        # Row 4: Action Button
         tk.Button(trans_new_frame, text="Send Transition Command", command=self._send_transition_to_new, width=22).grid(row=4, column=0, columnspan=4, pady=10)
 
         # Play Sequence
@@ -406,8 +422,10 @@ class JSONSenderApp:
     def _send_transition_to_new(self):
         print("DEBUG: Preparing to send Transition To command...")
         filename = self.filename_trans_new_var.get()
-        foreground = self.foreground_trans_var.get()
-        background = self.background_trans_var.get()
+        
+        # Read dropdowns or assign empty strings depending on the checkboxes
+        foreground = self.foreground_trans_var.get() if self.include_fg_var.get() else ""
+        background = self.background_trans_var.get() if self.include_bg_var.get() else ""
         
         fade_in = self._validate_float_input(self.fade_in_trans_new_var, "Transition Fade In")
         if fade_in is None: return
