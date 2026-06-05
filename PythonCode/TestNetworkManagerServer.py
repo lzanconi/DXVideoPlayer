@@ -64,7 +64,7 @@ class JSONSenderApp:
         self.fade_out_seq_var = tk.StringVar(value="1.0")
         self.loop_seq_var = tk.BooleanVar(value=False)
 
-        # --- Cover Command Variables ---
+        # --- NEW: Cover Command Variables ---
         self.filename_cover_var = tk.StringVar(value=default_filename)
         self.fade_in_cover_var = tk.StringVar(value="0.0")
         self.fade_out_cover_var = tk.StringVar(value="0.0")
@@ -160,7 +160,7 @@ class JSONSenderApp:
         tk.Button(fg_frame, text="Send FG Command", 
                   command=self._send_play_foreground, width=18).grid(row=2, column=1, columnspan=3, pady=10)
 
-        # --- Play Cover Frame ---
+        # --- NEW: Play Cover Frame ---
         cover_frame = tk.LabelFrame(commands_frame, text="Play Cover", padx=5, pady=5)
         cover_frame.pack(padx=10, pady=10, fill="x")
         
@@ -182,10 +182,6 @@ class JSONSenderApp:
         # Send Button
         tk.Button(cover_frame, text="Send Cover Command", 
                   command=self._send_play_cover, width=18).grid(row=2, column=1, columnspan=3, pady=10)
-
-        # Hide Cover Button
-        tk.Button(cover_frame, text="Hide Cover", 
-                  command=self._send_hide_cover, width=18, bg="#FFCCCC").grid(row=3, column=1, columnspan=3, pady=5)
 
         # Play Sequence
         seq_frame = tk.LabelFrame(commands_frame, text="Play Sequence", padx=5, pady=5)
@@ -326,10 +322,6 @@ class JSONSenderApp:
             self._update_feedback("Send Failed: Not connected.", is_error=True)
             return False
 
-        if "No Files Found" in str(message_dict.values()):
-             self._update_feedback("Send Failed: Please select a valid filename.", is_error=True)
-             return False
-
         try:
             json_message = json.dumps(message_dict)
             self.sock.sendall(json_message.encode('utf-8'))
@@ -384,6 +376,7 @@ class JSONSenderApp:
         }
         self._send_json_via_socket(message_dict)
 
+    # --- NEW: Play Cover Callback ---
     def _send_play_cover(self):
         print("DEBUG: Preparing to send Play Cover command...")
         filename = self.filename_cover_var.get()
@@ -397,11 +390,6 @@ class JSONSenderApp:
             "fade_out_seconds": fade_out,
             "loop": self.loop_cover_var.get()
         }
-        self._send_json_via_socket(message_dict)
-
-    def _send_hide_cover(self):
-        print("DEBUG: Preparing to send Hide Cover command...")
-        message_dict = {"hide_cover": ""}
         self._send_json_via_socket(message_dict)
     
     def _send_transition_to(self):

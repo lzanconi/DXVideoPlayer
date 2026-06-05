@@ -80,8 +80,7 @@ enum class NetworkCommandType
     PlayBackground,
     PlayForeground,
     PlaySequence,
-    PlayCover,
-    HideCover
+    PlayCover
 };
 
 //Enumeration for different video layer types, which can be used to determine which track (foreground or cover) a command should target

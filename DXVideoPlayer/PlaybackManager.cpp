@@ -605,21 +605,6 @@ void PlaybackManager::ProcessDeferredCommands()
 				}
 				break;
 			}
-
-			case NetworkCommandType::HideCover:
-			{
-				std::cout << ">>> [PlaybackManager] Processing deferred 'hide_cover' action." << std::endl;
-
-				// Clear any pending commands queued to start a new cover video
-				hasPendingCoverCmd = false;
-
-				// If the cover track is actively rendering, command its underlying source to start a forced fade-out
-				if (coverActive && coverTrack)
-				{
-					coverTrack->StartForcedFadeOut();
-				}
-				break;
-			}
 		}
 	}
 }
