@@ -43,6 +43,8 @@ public:
 	bool backgroundActive = false;
 	bool foregroundActive = false;
 	bool coverActive = false;
+	bool transitionMode = false;
+	bool stopping = false;
 
 	Sequence* activeSequence = nullptr;
 

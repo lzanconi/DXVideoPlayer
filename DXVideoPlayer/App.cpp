@@ -190,6 +190,11 @@ Config& App::GetConfig()
 	return configMgr->config;  
 }
 
+PlaybackManager* App::GetPlaybackManager()
+{
+    return playbackMgr;
+}
+
 void App::SetClientSocket(int socket)
 {
 	clientSocket = socket;

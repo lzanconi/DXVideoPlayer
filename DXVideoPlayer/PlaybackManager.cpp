@@ -628,7 +628,8 @@ void PlaybackManager::ProcessDeferredCommands()
 			{
 				std::cout << "[PlaybackManager] Processing deferred 'transition_to' action: " << cmd.filename << std::endl;
 				Config config = appInterface->GetConfig();
-
+				stopping = true;
+				transitionMode = true;
 				std::string filename = GetNameFromFile(cmd.filename);
 				auto targetPosition = config.target_positions[filename];
 

@@ -60,6 +60,7 @@ public:
 	int64_t GetBGCaptureTimeNS() override;
 	AppState& GetAppState() override;
 	Config& GetConfig() override;
+	PlaybackManager* GetPlaybackManager() override;
 	void SetClientSocket(int socket) override;
 	void HandleNetworkCommand(const std::string& jsonStr) override;
 

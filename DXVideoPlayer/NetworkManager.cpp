@@ -7,6 +7,8 @@
 #include <windows.h>
 #include <cmath>
 #include <algorithm>
+#include "PlaybackManager.h"
+#include "utils.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -144,19 +146,17 @@ void NetworkManager::RunClient()
 
 void NetworkManager::HandlePositionSend(SOCKET socket)
 {
-    /*auto period_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::duration<double>(1.0 / positions_framerate)
-    );*/
     auto period_duration = std::chrono::milliseconds(appInterface->GetConfig().send_period_ms);
-	char msg_buffer[64];
-	float last_known_position = 0.0f;
-	double scale = appInterface->GetConfig().positions_scale;   
-	double offset = appInterface->GetConfig().positions_offset;
-    float brakeAcceleration = 200.0;
+    char msg_buffer[64];
+    float last_known_position = 0.0f;
+    double scale = appInterface->GetConfig().positions_scale;
+    double offset = appInterface->GetConfig().positions_offset;
+    float brakeAcceleration = 200;
     auto next_frame = std::chrono::steady_clock::now() + period_duration;
-	float previousSentPosition = 0.0f;
+    float previousSentPosition = 0.0f;
     double current_speed = 0.0f;
-	positions_delay_ms = appInterface->GetConfig().positions_delay_ms;
+    positions_delay_ms = appInterface->GetConfig().positions_delay_ms;
+    PlaybackManager* playbackMgr = appInterface->GetPlaybackManager();
 
     while (clientRunning)
     {
@@ -166,9 +166,9 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
         if (time_left.count() > 2)
             std::this_thread::sleep_for(time_left - std::chrono::milliseconds(2));
 
-        while (std::chrono::steady_clock::now() < next_frame) 
+        while (std::chrono::steady_clock::now() < next_frame)
         {
-			//Spin until it's time for the next frame
+            //Spin until it's time for the next frame
         }
 
         auto trigger_time = std::chrono::steady_clock::now();
@@ -177,49 +177,126 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
         float pos_value = 0.0f;
         double progress_pct = 0.0;
 
-
         std::vector<float> positions = appInterface->GetPositions();
-        double last_video_time = appInterface->GetLastPTS();
-        int64_t capture_time_ns = appInterface->GetBGCaptureTimeNS();
-        double calc_time = 0.0;
 
-        if (capture_time_ns > 0)
+        if (!positions.empty())
         {
-            int64_t elapsed_ns = trigger_ns - capture_time_ns;
-            double elapsed_sec = (double)elapsed_ns / 1000000000.0;
+            double last_video_time = appInterface->GetLastPTS();
+            int64_t capture_time_ns = appInterface->GetBGCaptureTimeNS();
+            double calc_time = 0.0;
 
-            if (elapsed_sec > 2)
-                elapsed_sec = 0;
+            if (capture_time_ns > 0)
+            {
+                int64_t elapsed_ns = trigger_ns - capture_time_ns;
+                double elapsed_sec = (double)elapsed_ns / 1000000000.0;
 
-            calc_time = last_video_time + elapsed_sec;
+                if (elapsed_sec > 2)
+                    elapsed_sec = 0;
+
+                calc_time = last_video_time + elapsed_sec;
+            }
+            else
+            {
+                calc_time = last_video_time;
+            }
+
+            double delay_s = positions_delay_ms / 1000.0;
+            calc_time -= delay_s;
+            if (calc_time < 0.0)
+                calc_time = 0.0;
+
+            int count = (int)positions.size();
+            double exact_index = calc_time * positions_framerate;
+            int base_idx = (int)std::floor(exact_index);
+            double frac = exact_index - base_idx;
+
+            int idx0 = (std::min)(base_idx, count - 1);
+            int idx1 = (std::min)(base_idx + 1, count - 1);
+
+            if (idx0 < 0) idx0 = 0;
+            if (idx1 < 0) idx1 = 0;
+
+            float val0 = positions[idx0];
+            float val1 = positions[idx1];
+
+            float calculated_csv_pos = (float)(val0 * (1.0 - frac) + val1 * frac) * scale + offset;
+
+            if (!playbackMgr->transitionMode)
+            {
+                pos_value = calculated_csv_pos;
+                if (playbackMgr->backgroundTrack->IsActive())
+                {
+                    last_known_position = pos_value;
+                }
+            }
+            else
+            {
+                pos_value = last_known_position;
+            }
+
+            if (count > 0)
+            {
+                progress_pct = exact_index / (double)count;
+                if (progress_pct > 1.0)
+                {
+                    progress_pct = 1.0;
+                }
+            }
         }
         else
         {
-            calc_time = last_video_time;
+            pos_value = last_known_position;
         }
 
-        double delay_s = positions_delay_ms / 1000.0;
-        calc_time -= delay_s;
-        if (calc_time < 0.0)
-            calc_time = 0.0;
+        double dt_sec = period_duration.count() / 1000.0;
+        if (dt_sec <= 0.001) dt_sec = 0.040;
+        if (!playbackMgr->stopping)
+            current_speed = (double)(last_known_position - previousSentPosition) / dt_sec;
+        std::cout << "[Network Client] Calculated position: " << last_known_position << " | Speed: " << current_speed << std::endl;
 
-        int count = (int)positions.size();
-        double exact_index = calc_time * positions_framerate;
-        int base_idx = (int)std::floor(exact_index);
-        double frac = exact_index - base_idx;
+        if (playbackMgr->transitionMode)
+        {
+            //PHASE 1 - BRAKE TO STOP
+            if (playbackMgr->stopping)
+            {
+                progress_pct = 0.0;
+                //Check in which direction the monitor is moving
+                int movementDir = GetMovementDirection(current_speed);
 
-        int idx0 = (std::min)(base_idx, count - 1);
-        int idx1 = (std::min)(base_idx + 1, count - 1);
+                // Accelerate toward zero (brake)
+                double brake_dv = brakeAcceleration * dt_sec;
+                double newSpeed = current_speed;
+                if (current_speed > 0) {
+                    newSpeed -= brake_dv;
+                    if (newSpeed < 0) newSpeed = 0;
+                }
+                else if (current_speed < 0) {
+                    newSpeed += brake_dv;
+                    if (newSpeed > 0) newSpeed = 0;
+                }
 
-        if (idx0 < 0) idx0 = 0;
-        if (idx1 < 0) idx1 = 0;
+                std::cout << "[Network Client] New Speed: " << newSpeed << std::endl;
 
-        float val0 = positions[idx0];
-        float val1 = positions[idx1];
+                pos_value = last_known_position + (float)(newSpeed * dt_sec);
+                last_known_position = pos_value;
+                current_speed = newSpeed;
 
-        float calculated_csv_pos = (float)(val0 * (1.0 - frac) + val1 * frac) * scale + offset;
+                if (newSpeed == 0)
+                {
+					playbackMgr->stopping = false;
+                }
+            }
+        }
 
-        int len = snprintf(msg_buffer, sizeof(msg_buffer), "{\"positions\":[%.4f]}", calculated_csv_pos);
+        if (!playbackMgr->backgroundTrack->IsActive() && !playbackMgr->stopping)
+        {
+			pos_value = last_known_position;
+        }
+
+        int len = snprintf(msg_buffer, sizeof(msg_buffer), "{\"positions\":[%.4f]}", pos_value);
+        previousSentPosition = last_known_position;
+        last_known_position = pos_value;
+
         for (int i = 0; i < len; i++)
         {
             if (msg_buffer[i] == ',')
@@ -235,6 +312,10 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
         }
 
         next_frame += period_duration;
+        if (std::chrono::steady_clock::now() > next_frame + period_duration)
+        {
+            next_frame = std::chrono::steady_clock::now() + period_duration;
+        }
     }
 }
 

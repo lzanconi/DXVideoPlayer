@@ -131,3 +131,10 @@ inline std::string GetNameFromFile(const std::string& filename) {
     // Return the substring from the beginning to the dot
     return filename.substr(0, lastDot);
 }
+
+//Figures out which way the monitor is moving 
+//Returns 1 (forward), -1 (backward) or 0 (stationary)
+template <typename T>
+inline int GetMovementDirection(T val) {
+    return (T(0) < val) - (val < T(0));
+}
