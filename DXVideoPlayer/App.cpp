@@ -338,6 +338,35 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
             responseMessage = "{\"status\":\"acknowledged\",\"command\":\"hide_cover\"}";
         }
 
+		//TRANSITION TO COMMAND:
+        if (j.contains("transition_to"))
+        {
+			cmd.type = NetworkCommandType::TransitionTo;
+			cmd.filename = j["transition_to"].get<std::string>();
+
+            if (j.contains("foreground")) {
+				cmd.foreground = j["foreground"].get<std::string>();
+            }
+
+            if (j.contains("background")) {
+				cmd.background = j["background"].get<std::string>();
+            }
+
+            if (j.contains("fade_in_seconds")) {
+                cmd.fadeInDuration = j["fade_in_seconds"].get<float>();
+			}
+
+            if (j.contains("loop")) {
+                cmd.looped = j["loop"].get<bool>();
+			}
+
+            // Safely enqueue the command with thread protection
+            playbackMgr->EnqueueNetworkCommand(cmd);
+
+            commandProcessed = true;
+            responseMessage = "{\"status\":\"acknowledged\",\"command\":\"transition_to\"}";
+        }
+
         //If the command was successfully parsed and recognized, send an acknowledgment response back to the client
         if (clientSocket > 0 && commandProcessed)
         {

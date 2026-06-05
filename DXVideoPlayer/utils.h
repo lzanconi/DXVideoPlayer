@@ -117,3 +117,17 @@ inline std::string GetEnvVar(const std::string& key)
     }
     return "";
 }   
+
+// Utility function to extract the filename without extension from a given path.
+inline std::string GetNameFromFile(const std::string& filename) {
+    // Find the position of the last dot
+    size_t lastDot = filename.find_last_of(".");
+
+    // If no dot is found, return the whole string
+    if (lastDot == std::string::npos) {
+        return filename;
+    }
+
+    // Return the substring from the beginning to the dot
+    return filename.substr(0, lastDot);
+}
