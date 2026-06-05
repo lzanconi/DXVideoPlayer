@@ -99,6 +99,9 @@ void PlaybackManager::UpdateLayers(ID3D11DeviceContext* context)
 	//Manages the active states of the cover, automatically deactivating it when it has finished playing or completed its fade-out transitions.
 	ResetCoverLayer();
 
+	//Checks if there is a pending command to play a new cover video and if the cover layer is not active, and if so, processes the pending command to start playing the new cover video.
+	HandlePendingCoverCmd(state);
+
 	//Checks if there is a pending command to play a new foreground video and if the foreground layer is not active, and if so, processes the pending command to start playing the new foreground video.
 	HandlePendingForegroundCmd(state);
 
