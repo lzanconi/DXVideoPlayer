@@ -109,7 +109,7 @@ void ContentManager::LoadVideoContents(const std::string& folderPath)
             //Disables fade-in for the background for immediate playback
             videoContents.at(0).fadeInDuration = 0.0f;
             //Disables fade-out for the background
-            videoContents.at(0).fadeOutDuration = 0.0f;
+            videoContents.at(0).fadeOutDuration = 2.0f;
 
             //JUST FOR TESTING
             //Sets the first foreground candidate (index 1) to loop indefinitely
