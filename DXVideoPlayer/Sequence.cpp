@@ -25,7 +25,7 @@ void Sequence::Play(bool shouldLoop)
 	cmd.filename = items[currentIndex].filename;
 	cmd.fadeInDuration = items[currentIndex].fadeInDuration;
 	cmd.fadeOutDuration = items[currentIndex].fadeOutDuration;
-	cmd.looped = false;
+	cmd.looped = items[currentIndex].looped; // --- FIX: Use item specific loop setting here ---
 
 	playbackMgr->PlaySequenceItem(cmd);
 }
@@ -43,13 +43,38 @@ void Sequence::AdvanceSequence()
 	if (!isActive)
 		return;
 
+	// --- FIX: Check if the CURRENT item is configured to loop internally ---
+	if (currentIndex >= 0 && currentIndex < static_cast<int>(items.size()))
+	{
+		if (items[currentIndex].looped)
+		{
+			std::cout << "[Sequence] Repeating single item due to item-level loop configuration: "
+				<< items[currentIndex].filename << " (Index: " << currentIndex << ")" << std::endl;
+
+			// Re-trigger the same index instead of incrementing it
+			float appliedFadeIn = isFirstRun ? items[currentIndex].fadeInDuration : 0.0f;
+			float appliedFadeOut = 0.0f; // Keep it alive
+
+			DeferredCommand cmd;
+			cmd.type = NetworkCommandType::PlayForeground;
+			cmd.filename = items[currentIndex].filename;
+			cmd.fadeInDuration = appliedFadeIn;
+			cmd.fadeOutDuration = appliedFadeOut;
+			cmd.looped = true; // Set to true so the VideoSource loops properly
+
+			playbackMgr->PlaySequenceItem(cmd);
+			return; // Exit out immediately to prevent index advancement
+		}
+	}
+
+	// If the current item doesn't loop, advance to the next item normally
 	currentIndex++;
 
 	if (currentIndex >= static_cast<int>(items.size()))
 	{
 		if (looped)
 		{
-			std::cout << ">>> [Sequence] Looping sequence: " << name << std::endl;	
+			std::cout << ">>> [Sequence] Looping sequence: " << name << std::endl;
 			currentIndex = 0;
 			isFirstRun = false;
 		}
@@ -72,7 +97,7 @@ void Sequence::AdvanceSequence()
 	cmd.filename = items[currentIndex].filename;
 	cmd.fadeInDuration = appliedFadeIn;
 	cmd.fadeOutDuration = appliedFadeOut;
-	cmd.looped = false;
+	cmd.looped = items[currentIndex].looped; // Respect the item config instead of hardcoding false
 
 	playbackMgr->PlaySequenceItem(cmd);
-}	
+}

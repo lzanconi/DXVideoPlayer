@@ -252,7 +252,7 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
         if (dt_sec <= 0.001) dt_sec = 0.040;
         if (!playbackMgr->stopping)
             current_speed = (double)(last_known_position - previousSentPosition) / dt_sec;
-        std::cout << "[Network Client] Calculated position: " << last_known_position << " | Speed: " << current_speed << std::endl;
+        /*std::cout << "[Network Client] Calculated position: " << last_known_position << " | Speed: " << current_speed << std::endl;*/
 
         if (playbackMgr->transitionMode)
         {
