@@ -53,7 +53,7 @@ public:
     bool GetNextFrame(ID3D11DeviceContext* context);
     void Play(double startTime);
 	void Rewind();
-	void StartFadeIn(float fadeInTime = -1.0f);
+	void StartFadeIn(float fadeInTime);
 	void StartForcedFadeOut(float duration);
     void ComputeFadeIn();
 

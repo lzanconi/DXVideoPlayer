@@ -47,7 +47,7 @@ public:
     // Control API
     void Play(double startTime);
     void Rewind();
-	void StartFadeIn(float fadeInTime = -1.0f);
+	void StartFadeIn(float duration);
     void StartForcedFadeOut(float duration);
 
     // Getters / Setters

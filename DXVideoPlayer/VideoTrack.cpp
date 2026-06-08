@@ -33,7 +33,7 @@ void VideoTrack::Play(double startTime)
     if (videoSource->fadeInDuration > 0.0f)
     {
         //Instructs the VideoSource to begin the fade-in progression
-        StartFadeIn();
+        StartFadeIn(videoSource->fadeInDuration);
     }
 	//...Otherwise, if there is no fade-in duration, it can immediately set the state to Playing
     else
@@ -53,12 +53,12 @@ void VideoTrack::Rewind()
 * It initiates the fade-in process for this track, which will cause the alpha to ramp up from 0.0 to 1.0 over the specified duration
 * "fadeInTime" allows overriding the default fade-in duration specified in the VideoSource
 */
-void VideoTrack::StartFadeIn(float fadeInTime)
+void VideoTrack::StartFadeIn(float duration)
 {
     //Updates VideoTrack state to FadingIn
 	state = VideoTrackState::FadingIn;
     //Passes the fadeInTime duration to the VideoSource
-    videoSource->StartFadeIn(fadeInTime);
+    videoSource->StartFadeIn(duration);
 }
 
 /*

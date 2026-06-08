@@ -246,8 +246,7 @@ void VideoSource::Rewind()
 
 void VideoSource::StartFadeIn(float fadeInTime)
 {
-    if (fadeInTime != -1.0f)
-		fadeInDuration = fadeInTime;    
+	fadeInDuration = fadeInTime;    
 
 	isFadingIn = true;
 }
