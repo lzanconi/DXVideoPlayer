@@ -599,7 +599,7 @@ void PlaybackManager::ProcessDeferredCommands()
 					hasPendingSequenceCmd = false;
 					activeSequence = targetSequence;
 
-					if (activeSequence)
+					if (activeSequence && !activeSequence->items.empty())
 					{
 						activeSequence->items[0].fadeInDuration = cmd.fadeInDuration;
 						activeSequence->items[activeSequence->items.size() - 1].fadeOutDuration = cmd.fadeOutDuration;
