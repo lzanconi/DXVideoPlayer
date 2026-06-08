@@ -435,7 +435,7 @@ LRESULT App::HandleMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         ToggleFullscreen(hwnd);
 
     if (msg == WM_KEYDOWN && wp == 'T')
-        playbackMgr->ForceStopForegroundLayers();
+        playbackMgr->ForceStopForegroundLayers(1.0f);
 
     if (msg == WM_SIZE && renderer->GetSwapChain()) 
         renderer->Resize(0, 0);

@@ -48,7 +48,7 @@ public:
     void Play(double startTime);
     void Rewind();
 	void StartFadeIn(float fadeInTime = -1.0f);
-    void StartForcedFadeOut();
+    void StartForcedFadeOut(float duration);
 
     // Getters / Setters
     void SetActive(bool active) { isActive = active; }

@@ -64,7 +64,7 @@ void VideoTrack::StartFadeIn(float fadeInTime)
 /*
 * Instructs the VideoSource to immediately start fading out from the current alpha level, regardless of the current playback position in the video.
 */
-void VideoTrack::StartForcedFadeOut()
+void VideoTrack::StartForcedFadeOut(float duration)
 {
 	//If the track is already in the process of fading out, it ignores additional fade-out commands to prevent conflicts and ensure a smooth transition
     if (state == VideoTrackState::FadingOut)
@@ -77,7 +77,7 @@ void VideoTrack::StartForcedFadeOut()
 	//Updates VideoTrack state to FadingOut
     state = VideoTrackState::FadingOut;
 	//Instructs the VideoSource to begin the forced fade-out progression
-    videoSource->StartForcedFadeOut();
+    videoSource->StartForcedFadeOut(duration);
 }
 
 /*

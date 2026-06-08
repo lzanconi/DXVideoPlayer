@@ -222,7 +222,7 @@ void PlaybackManager::HandleBackgroundEvents()
 					{
 						std::cout << "[Timeline Event] Duration reached for " << evt.filename
 							<< ". Injecting automatic fade out." << std::endl;
-						foregroundTrack->StartForcedFadeOut();
+						foregroundTrack->StartForcedFadeOut(evt.fadeOutDuration);
 					}
 				}
 			}
@@ -432,7 +432,7 @@ void PlaybackManager::RenderLayers(float winW, float winH)
 /*
 * Triggers an immediate forced fade-out of the foreground and cover videos if they are active, and resets all pending command flags.
 */
-void PlaybackManager::ForceStopForegroundLayers()
+void PlaybackManager::ForceStopForegroundLayers(float duration)
 {
 	hasPendingForegroundCmd = false;
 	hasPendingSequenceCmd = false;
@@ -445,16 +445,16 @@ void PlaybackManager::ForceStopForegroundLayers()
 
 	if (foregroundActive && foregroundTrack)
 	{
-		foregroundTrack->StartForcedFadeOut();
+		foregroundTrack->StartForcedFadeOut(duration);
 	}
 
 	if (coverActive && coverTrack)
 	{
-		coverTrack->StartForcedFadeOut();
+		coverTrack->StartForcedFadeOut(duration);
 	}
 }
 
-void PlaybackManager::ForceStopBackgroundLayer()
+void PlaybackManager::ForceStopBackgroundLayer(float duration)
 {
 	// Clear any pending commands queued to start a new background video
 	hasPendingBackgroundCmd = false;
@@ -462,7 +462,7 @@ void PlaybackManager::ForceStopBackgroundLayer()
 	// If the background track is actively rendering, command its underlying source to start a forced fade-out
 	if (backgroundActive && backgroundTrack)
 	{
-		backgroundTrack->StartForcedFadeOut();
+		backgroundTrack->StartForcedFadeOut(duration);
 	}
 }
 
@@ -493,8 +493,8 @@ void PlaybackManager::ProcessDeferredCommands()
 			case NetworkCommandType::Stop:
 			{
 				std::cout << ">>> [PlaybackManager] Processing deferred 'stop' action." << std::endl;
-				ForceStopBackgroundLayer();
-				ForceStopForegroundLayers();
+				ForceStopBackgroundLayer(1.0f);
+				ForceStopForegroundLayers(1.0f);
 				break;
 			}
 
@@ -508,7 +508,7 @@ void PlaybackManager::ProcessDeferredCommands()
 					if (foregroundActive && foregroundTrack && foregroundTrack->IsActive())
 					{
 						std::cout << "[PlaybackManager] Background event video active on foreground layer. Forcing fade out." << std::endl;
-						foregroundTrack->StartForcedFadeOut();
+						foregroundTrack->StartForcedFadeOut(cmd.fadeOutDuration);
 					}
 
 					if (activeSequence && activeSequence->isActive)
@@ -521,7 +521,7 @@ void PlaybackManager::ProcessDeferredCommands()
 						pendingBackgroundCmd = cmd;
 						hasPendingBackgroundCmd = true;
 
-						backgroundTrack->StartForcedFadeOut();
+						backgroundTrack->StartForcedFadeOut(cmd.fadeOutDuration);
 					}
 					else
 					{
@@ -548,7 +548,7 @@ void PlaybackManager::ProcessDeferredCommands()
 						{
 							activeSequence->Stop();
 						}
-						foregroundTrack->StartForcedFadeOut();
+						foregroundTrack->StartForcedFadeOut(cmd.fadeOutDuration);
 					}
 					else
 					{
@@ -592,7 +592,7 @@ void PlaybackManager::ProcessDeferredCommands()
 					{
 						activeSequence->Stop();
 					}
-					foregroundTrack->StartForcedFadeOut();
+					foregroundTrack->StartForcedFadeOut(cmd.fadeOutDuration);
 				}
 				else
 				{
@@ -619,7 +619,7 @@ void PlaybackManager::ProcessDeferredCommands()
 					{
 						pendingCoverCmd = cmd;
 						hasPendingCoverCmd = true;
-						coverTrack->StartForcedFadeOut();
+						coverTrack->StartForcedFadeOut(cmd.fadeOutDuration);
 					}
 					else
 					{
@@ -639,7 +639,7 @@ void PlaybackManager::ProcessDeferredCommands()
 				// If the cover track is actively rendering, command its underlying source to start a forced fade-out
 				if (coverActive && coverTrack)
 				{
-					coverTrack->StartForcedFadeOut();
+					coverTrack->StartForcedFadeOut(1.0f);
 				}
 				break;
 			}
