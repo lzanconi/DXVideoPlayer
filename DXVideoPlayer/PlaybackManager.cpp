@@ -312,6 +312,13 @@ void PlaybackManager::HandlePendingSequenceCmd()
 		if (targetSequence)
 		{
 			activeSequence = targetSequence;
+
+			if (!activeSequence->items.empty())
+			{
+				activeSequence->items[0].fadeInDuration = pendingSequenceCmd.fadeInDuration;
+				activeSequence->items[activeSequence->items.size() - 1].fadeOutDuration = pendingSequenceCmd.fadeOutDuration;
+			}
+
 			activeSequence->Stop(); // Reset the sequence state to ensure it starts from the beginning
 			activeSequence->Play(pendingSequenceCmd.looped);
 		}
