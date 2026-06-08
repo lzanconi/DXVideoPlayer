@@ -26,8 +26,6 @@ public:
 
 private:
 	bool isFullscreen = false;
-	bool spaceBarPressed = false;
-	bool tKeyPressed = false;
 	bool fgActive = false;
 	bool coverActive = false;
 	int clientSocket = -1;	

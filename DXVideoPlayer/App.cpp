@@ -104,21 +104,6 @@ void App::Run()
 
 		playbackMgr->ProcessDeferredCommands();
         
-		//DEBUG PURPOSE: 
-        //Pressing spacebar will trigger the playback of a foreground video
-        if (spaceBarPressed)
-        {
-			spaceBarPressed = false;
-			playbackMgr->PlayTrackOnLayer(1, playbackMgr->foregroundTrack, playbackMgr->foregroundActive, LayerType::Foreground);
-        }
-
-		//Pressing 'T' key will trigger an immediate forced fade-out of the foreground video if it is active
-        if (tKeyPressed)
-        {
-            tKeyPressed = false;
-			playbackMgr->ForceStopForegroundLayers();   
-		}
-
         // =================================================================
         // PHASE 1: NON-BLOCKING DECODING AND TEXTURE UPDATE
         // In PHASE 1:
@@ -444,13 +429,13 @@ LRESULT App::HandleMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     }
     
     if (msg == WM_KEYDOWN && wp == VK_SPACE) 
-        spaceBarPressed = true;
+        playbackMgr->PlayTrackOnLayer(1, playbackMgr->foregroundTrack, playbackMgr->foregroundActive, LayerType::Foreground);
     
     if (msg == WM_KEYDOWN && wp == 'F')
         ToggleFullscreen(hwnd);
 
     if (msg == WM_KEYDOWN && wp == 'T')
-		tKeyPressed = true;
+        playbackMgr->ForceStopForegroundLayers();
 
     if (msg == WM_SIZE && renderer->GetSwapChain()) 
         renderer->Resize(0, 0);
