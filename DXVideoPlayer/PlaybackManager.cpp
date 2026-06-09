@@ -170,45 +170,81 @@ void PlaybackManager::HandlePendingBackgroundCmd(AppState& state)
 
 void PlaybackManager::HandleBackgroundEvents()
 {
-	if (!backgroundTrack || !backgroundTrack->IsActive()) return;
+	if (!backgroundTrack || !backgroundTrack->IsActive()) 
+		return;
 
 	VideoSource* bgSource = backgroundTrack->GetSource();
-	if (!bgSource) return;
+	if (!bgSource) 
+		return;
 
-	double currentPlayhead = bgSource->internalPTS;
+	double backgroundPTS = bgSource->internalPTS;
 	AppState& state = appInterface->GetAppState();
 
+	// -------------------------------------------------------------
+	// PHASE 1: EVALUATE TRIGGER CONDITIONS FOR SCHEDULED EVENTS
+	// -------------------------------------------------------------
+
+	//Loops through all the events loaded from -events.txt file 
 	for (auto& evt : bgSource->events)
 	{
-		// Trigger condition: if the playhead passes the start time on this loop execution pass
-		if (!evt.triggered && currentPlayhead >= evt.startTime)
+		//Ensures that the event hasn't been fired yet and that the background playhead has reached or passed the event start time
+		if (!evt.triggered && backgroundPTS >= evt.startTime)
 		{
-			// Only trigger if we are within a reasonable timeline window of the event (e.g., within 1.0 second of its scheduled slot)
-			// This prevents old events from misfiring if there's a slow frame tick exactly during the loop boundary transition
-			if (currentPlayhead <= (evt.startTime + 1.0))
+			//Provies a small grace period of 1 second after the event start time preventing missed triggers due to timing discrepancies
+			if (backgroundPTS <= (evt.startTime + 1.0))
 			{
+				//Marks the event as triggered to prevent it from firing again in subsequent iterations of the loop
 				evt.triggered = true;
 
-				int matchIdx = FindVideoSourceIndexByFilename(evt.filename, state.sources);
-				if (matchIdx != -1)
+				//Check if the event is a sequence
+				bool isSequence = (evt.filename.find(".txt") != std::string::npos);
+
+				//SEQUENCE
+				if (isSequence)
 				{
+					//Creates a local DeferredCommand to play the sequence
 					DeferredCommand cmd;
-					cmd.type = NetworkCommandType::PlayForeground;
+					cmd.type = NetworkCommandType::PlaySequence;
 					cmd.filename = evt.filename;
 					cmd.fadeInDuration = evt.fadeInDuration;
 					cmd.fadeOutDuration = evt.fadeOutDuration;
 					cmd.looped = false;
 
-					std::cout << "[Timeline Event] Firing foreground layer item: " << evt.filename
-						<< " at playhead pos: " << currentPlayhead << "s" << std::endl;
+					std::cout << "[Timeline Event] Firing automated sequence file: " << evt.filename
+						<< " at background playhead pos: " << backgroundPTS << "s" << std::endl;
 
-					PlayTrackOnLayer(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
+					EnqueueNetworkCommand(cmd);
+				}
+				//VIDEO
+				else
+				{
+					//Find the index of the video source matching the event filename
+					int matchIdx = FindVideoSourceIndexByFilename(evt.filename, state.sources);
+					if (matchIdx != -1)
+					{
+						//Creates a local DeferredCommand to play the foreground video
+						DeferredCommand cmd;
+						cmd.type = NetworkCommandType::PlayForeground;
+						cmd.filename = evt.filename;
+						cmd.fadeInDuration = evt.fadeInDuration;
+						cmd.fadeOutDuration = evt.fadeOutDuration;
+						cmd.looped = false;
+
+						std::cout << "[Timeline Event] Firing foreground layer item: " << evt.filename
+							<< " at playhead pos: " << backgroundPTS << "s" << std::endl;
+
+						PlayTrackOnLayer(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
+					}
 				}
 			}
 		}
 	}
 
-	// Process Active Event Duration Limit Boundaries
+	// -------------------------------------------------------------
+	// PHASE 2: STOPS VIDEOS AND SEQUENCES THAT HAVE REACHED THEIR DURATION THRESHOLDS
+	// -------------------------------------------------------------
+
+	//STOPS VIDEO
 	if (foregroundActive && foregroundTrack && foregroundTrack->IsActive())
 	{
 		VideoSource* fgSource = foregroundTrack->GetSource();
@@ -218,12 +254,48 @@ void PlaybackManager::HandleBackgroundEvents()
 			{
 				if (evt.filename == fgSource->filename && evt.triggered)
 				{
+					if (evt.duration <= 0.0f)
+						continue;
+
 					if (fgSource->internalPTS >= evt.duration && !fgSource->isFadingOut)
 					{
 						std::cout << "[Timeline Event] Duration reached for " << evt.filename
 							<< ". Injecting automatic fade out." << std::endl;
 						foregroundTrack->StartForcedFadeOut(evt.fadeOutDuration);
 					}
+				}
+			}
+		}
+	}
+
+	//STOPS SEQUENCES
+
+	//Check if a sequence is alive and active
+	if (activeSequence && activeSequence->isActive)
+	{
+		//Loops through all the events in from the -events.txt file
+		for (const auto& evt : bgSource->events)
+		{
+			//Checks if the event is associated with the active sequence and has been triggered
+			if (evt.filename == activeSequence->name && evt.triggered)
+			{
+				//If the event has a duration of <= 0, it means it has no duration so it can run indefinitely
+				//This is necessary is sequence has an element set to loop
+				if (evt.duration <= 0.0f)
+					continue;
+
+				//Calculates how many seconds are passed since the sequence has started playing
+				double elapsedSequenceTime = backgroundPTS - evt.startTime;
+
+				//If it's more >= than the event duration...
+				if (elapsedSequenceTime >= evt.duration)
+				{
+					std::cout << "[Timeline Event] Duration threshold reached for active sequence: " << activeSequence->name
+						<< ". Killing running foreground channels." << std::endl;
+
+					//Halts the active sequence advancement, deactivates sequence flags and triggers a clean fade out (if set) on current 
+					//sequence video that is playing
+					ForceStopForegroundLayers(evt.fadeOutDuration);
 				}
 			}
 		}
