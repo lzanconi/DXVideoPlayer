@@ -326,10 +326,10 @@ void ContentManager::ParseSequenceFile(const std::string& filePath, std::vector<
                 trim(key);
                 trim(val);
 
-                if (key == "fade-in") {
+                if (key == "fadeIn") {
                     seqItem.fadeInDuration = std::stof(val);
                 }
-                else if (key == "fade-out") {
+                else if (key == "fadeOut") {
                     seqItem.fadeOutDuration = std::stof(val);
                 }
                 else if (key == "loop") {

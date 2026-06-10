@@ -119,7 +119,7 @@ struct DeferredCommand
 struct SequenceItem
 {
     std::string filename;
-    float fadeInDuration = 0.0f;
-    float fadeOutDuration = 0.0f;
+    float fadeInDuration = 1.0f;
+    float fadeOutDuration = 1.0f;
 	bool looped = false;
 };
