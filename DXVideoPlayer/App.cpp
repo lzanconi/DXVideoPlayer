@@ -50,7 +50,7 @@ App::App(int width, int height)
 	playbackMgr = new PlaybackManager(this, videoShader);
 	playbackMgr->InitializeVideoTracks();
 
-	contentMgr->LoadSequences(".\\Videos", playbackMgr);
+	contentMgr->LoadSequences("prod", playbackMgr);
 
 	ShowWindow(window, SW_SHOW);
 	ToggleFullscreen(window);
@@ -382,7 +382,9 @@ void App::LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context)
             videoSource->looped = videoContent.second.looped;
 			videoSource->positions = videoContent.second.positions;
 			videoSource->events = videoContent.second.events;
-            state.sources.push_back(videoSource);
+            //state.sources.push_back(videoSource);
+			std::string sourceName = GetFilenameFromPath(filename);
+            state.sourcesMap[sourceName] = videoSource;
         }
         else
         {
@@ -392,12 +394,12 @@ void App::LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context)
         
     }
 
-	int numSources = state.sources.size();
+	int numSources = state.sourcesMap.size();
     std::string infoMsg = "[INFO App->LoadVideoSources]  Video sources loaded: " + std::to_string(numSources);
     std::cout << infoMsg << std::endl;
-    for (const auto& source : state.sources)
+    for (const auto& source : state.sourcesMap)
     {
-        infoMsg = "     VideoSource: " + source->filename + " / Duration: " + GetDurationMinSec(static_cast<int>(source->duration));
+        infoMsg = "     VideoSource: " + source.second->filename + " / Duration: " + GetDurationMinSec(static_cast<int>(source.second->duration));
         std::cout << infoMsg << std::endl;
     }
 }

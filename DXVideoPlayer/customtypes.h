@@ -11,6 +11,7 @@ class Sequence;
 struct AppState
 {
     std::vector<VideoSource*> sources;
+	std::map<std::string, VideoSource*> sourcesMap;
 	std::vector<Sequence*> sequences;
     IRenderer* renderer = nullptr;
     NetworkManager* networkMgr = nullptr;

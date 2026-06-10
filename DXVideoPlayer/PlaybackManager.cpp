@@ -17,11 +17,13 @@ void PlaybackManager::InitializeVideoTracks()
 {
 	//Retrieves the current application state from the IApp interface, which contains the loaded video sources and sequences
 	AppState& state = appInterface->GetAppState();
+	std::string autoRunFilename = appInterface->GetConfig().autorun_filename;
+	autoRunFilename = GetFilenameFromPath(autoRunFilename);
 
 	//Initializes the video tracks for background, foreground, and cover layers using the first three video sources from the AppState.
-	backgroundTrack = std::make_unique<VideoTrack>(state.sources[0]);
-	foregroundTrack = std::make_unique<VideoTrack>(state.sources[1]);
-	coverTrack = std::make_unique<VideoTrack>(state.sources[2]);
+	backgroundTrack = std::make_unique<VideoTrack>(state.sourcesMap[autoRunFilename]);
+	foregroundTrack = std::make_unique<VideoTrack>(state.sourcesMap[autoRunFilename]);
+	coverTrack = std::make_unique<VideoTrack>(state.sourcesMap[autoRunFilename]);
 
 	//Enable blending for the foreground and cover tracks to allow for proper alpha compositing during fade-in and fade-out transitions, 
 	//while keeping blending disabled for the background track since it will always be fully opaque.
@@ -31,7 +33,6 @@ void PlaybackManager::InitializeVideoTracks()
 
 	backgroundActive = true;
 
-	std::string autoRunFilename = appInterface->GetConfig().autorun_filename;
 	//Starts the playback of the background track immediately without any fade-in effect, using the current time as the starting point for synchronization.
 	backgroundTrack->Play(GetTimeStd());
 

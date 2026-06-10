@@ -10,7 +10,6 @@ class ContentManager
 {
 private:
 	IApp* appInterface;
-	std::vector<VideoContent> videoContents;
 	std::map<std::string, VideoContent> videoContentsMap;
 
 public:
@@ -20,12 +19,8 @@ public:
 	// Scans the folder for .mp4 files and matching .csv position files
 	void LoadContents();
 	
-	void LoadVideoContents(const std::string& folderPath);
-
 	void LoadSequences(const std::string& folderPath, PlaybackManager* playbackMgr);
 
-	// Returns the list of loaded video content
-	const std::vector<VideoContent>& GetVideoContents() const;
 	const std::map<std::string, VideoContent>& GetVideoContentsMap() const;
 
 private:
