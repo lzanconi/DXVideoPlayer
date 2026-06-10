@@ -25,6 +25,7 @@ struct TargetPosition {
 
 struct Config
 {
+    std::string choreos_config_file = "../config/choreos/config.json";
     std::string assets_path = "./assets";
     std::string target_ip = "127.0.0.1";
     std::string cover_filename = "Cover.mp4";
@@ -38,6 +39,11 @@ struct Config
     double positions_scale = 1.0;
     double positions_offset = 0.0;
     std::string autorun_filename = "";
+    float cover_reference_speed = 200.0f;
+    float cover_stop_acceleration = 200.0f;
+    float cover_fade_in_time = 0.0f;
+    float cover_fade_out_time = 0.0f;
+    bool  disable_cover = false;
     std::map<std::string, TargetPosition> target_positions;
 };
 
@@ -53,6 +59,8 @@ struct BackgroundEvent
 
 struct VideoContent
 {
+    int id = -1;
+    std::string name;
     //Path to the .mp4 file
     std::string filename;
     //Fade in duration in seconds (default 2.5s)

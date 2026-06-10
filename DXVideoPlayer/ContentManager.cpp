@@ -7,7 +7,9 @@
 #include "utils.h"
 #include "customtypes.h"
 #include "Sequence.h"
+#include <json.hpp>
 
+using json = nlohmann::json;
 namespace fs = std::filesystem;
 
 ContentManager::ContentManager(IApp* appInterface) : appInterface(appInterface) {}
@@ -29,6 +31,14 @@ void ContentManager::LoadContentsFromFolder(const std::string& folderPath)
     {
         std::cerr << "Error loading contents from folder: " << e.what() << std::endl;
     }
+}
+
+void ContentManager::LoadContents(const std::string& folderPath)
+{
+	LoadVideoContentsFromConfig();
+
+	LoadVideoContentsFromFolder();
+    
 }
 
 void ContentManager::LoadVideoContents(const std::string& folderPath)
@@ -81,7 +91,7 @@ void ContentManager::LoadVideoContents(const std::string& folderPath)
                 if (fs::exists(eventsPath))
                 {
                     std::cout << "ContentManager: Found matching events file for " << entry.path().filename() << std::endl;
-                    LoadBackgroundEvents(eventsPath.string(), content);
+                    LoadBackgroundEvents(content, eventsPath.string());
                 }
 
                 //Adds the fully prepared video metadata to the list
@@ -127,9 +137,117 @@ void ContentManager::LoadVideoContents(const std::string& folderPath)
     }
 }
 
-const std::vector<VideoContent>& ContentManager::GetVideoContents() const
+
+
+void ContentManager::LoadVideoContentsFromConfig()
 {
-    return videoContents;
+    const Config& config = appInterface->GetConfig();
+    std::string chroeosConfig = config.choreos_config_file;
+
+    if (!fs::exists(chroeosConfig))
+    {
+        std::cerr << "Choreography config file not found: " << chroeosConfig << std::endl;
+        return;
+    }
+
+    fs::path baseDir = fs::path(chroeosConfig).parent_path();
+
+    json j;
+    try
+    {
+        std::ifstream fstream(chroeosConfig);
+        j = json::parse(fstream);
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Error parsing choreos config file: " << e.what() << "\n";
+        return;
+    }
+
+    if (!j.contains("choreographies") || !j["choreographies"].is_array())
+    {
+        std::cerr << "Warning: No 'choreographies' array in choreos config file.\n";
+        return;
+    }
+
+	videoContentsMap.clear();
+
+    for (const auto& choreo : j["choreographies"])
+    {
+        if (!choreo.contains("videoFile"))
+            continue;
+
+        std::string videoFile = choreo["videoFile"].get<std::string>();
+        fs::path videoPath(videoFile);
+        videoPath = (baseDir / videoPath).lexically_normal();
+
+        VideoContent content;
+        content.id = choreo.value("id", -1);
+        content.name = GetFilenameFromPath(videoPath.string());
+        content.filename = videoPath.string();
+
+        //LOAD CSV POSITIONS
+        if (choreo.contains("file"))
+        {
+            std::string csvFile = choreo["file"].get<std::string>();
+            fs::path csvPath(csvFile);
+            csvPath = (baseDir / csvPath).lexically_normal();
+            LoadCSVPositions(content, csvPath.string());
+        }
+
+        //LOAD EVENTS
+        if (choreo.contains("eventsFile"))
+        {
+            std::string eventsFile = choreo["eventsFile"].get<std::string>();
+            fs::path eventsPath(eventsFile);
+            eventsPath = (baseDir / eventsPath).lexically_normal();
+            LoadBackgroundEvents(content, eventsPath.string());
+        }
+
+        videoContentsMap[content.name] = content;
+        /*videoContents.push_back(content);*/
+    }
+}
+
+void ContentManager::LoadVideoContentsFromFolder()
+{
+    const Config& config = appInterface->GetConfig();
+    std::string assetsPath = config.assets_path;
+    if (fs::exists(assetsPath))
+
+    {
+        for (const auto& entry : fs::recursive_directory_iterator(assetsPath))
+        {
+            if (!entry.is_regular_file() || entry.path().extension() != ".mp4")
+                continue;
+
+            std::string videoName = GetFilenameFromPath(entry.path().string());
+
+            if (videoContentsMap.count(videoName))
+                continue;
+
+            VideoContent content;
+			content.name = videoName;
+            content.filename = entry.path().string();
+
+            //LOAD CSV POSITIONS
+            fs::path csvPath = entry.path();
+            csvPath.replace_extension(".csv");
+			if (fs::exists(csvPath))
+                LoadCSVPositions(content, csvPath.string());
+
+            //LOAD EVENTS
+            std::string stem = entry.path().stem().string();
+            fs::path eventsPath = entry.path().parent_path() / (stem + "-events.txt");
+            if (fs::exists(eventsPath))
+				LoadBackgroundEvents(content, eventsPath.string());
+
+            /*std::string baseName = eventsPath.stem().string();
+            eventsPath.replace_filename(baseName + "-events.txt");*/
+
+			videoContentsMap[content.name] = content;
+        }
+    }
 }
 
 void ContentManager::LoadCSVPositions(VideoContent& content, const std::string& csvPath)
@@ -169,7 +287,7 @@ void ContentManager::LoadCSVPositions(VideoContent& content, const std::string& 
     }
 }
 
-void ContentManager::LoadBackgroundEvents(const std::string& filePath, VideoContent& content)
+void ContentManager::LoadBackgroundEvents(VideoContent& content, const std::string& filePath)
 {
     std::ifstream file(filePath);
     if (!file.is_open()) 
@@ -320,6 +438,9 @@ void ContentManager::ParseSequenceFile(const std::string& filePath, std::vector<
 
         outItems.push_back(seqItem);
     }
+}
 
-
+const std::vector<VideoContent>& ContentManager::GetVideoContents() const
+{
+    return videoContents;
 }

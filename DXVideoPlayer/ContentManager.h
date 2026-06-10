@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <map>
 #include "customtypes.h"
 
 class IApp;
@@ -10,6 +11,7 @@ class ContentManager
 private:
 	IApp* appInterface;
 	std::vector<VideoContent> videoContents;
+	std::map<std::string, VideoContent> videoContentsMap;
 
 public:
 	ContentManager(IApp* appInterface);
@@ -17,6 +19,7 @@ public:
 
 	// Scans the folder for .mp4 files and matching .csv position files
 	void LoadContentsFromFolder(const std::string& folderPath);	
+	void LoadContents(const std::string& folderPath);
 	
 	void LoadVideoContents(const std::string& folderPath);
 
@@ -26,9 +29,10 @@ public:
 	const std::vector<VideoContent>& GetVideoContents() const;
 
 private:
-	// Internal helper to parse position data from CSV files
+	void LoadVideoContentsFromConfig();
+	void LoadVideoContentsFromFolder();
 	void LoadCSVPositions(VideoContent& content, const std::string& csvPath);
-	void LoadBackgroundEvents(const std::string& filePath, VideoContent& content);
+	void LoadBackgroundEvents(VideoContent& content, const std::string& filePath);
 	void ParseSequenceFile(const std::string& filePath, std::vector<SequenceItem>& outItems);
 };
 

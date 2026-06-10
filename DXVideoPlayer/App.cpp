@@ -24,6 +24,7 @@ App::App(int width, int height)
 
     contentMgr = new ContentManager(this);
     contentMgr->LoadContentsFromFolder(".\\Videos");
+	contentMgr->LoadContents(".\\Videos");
 
     if (contentMgr->GetVideoContents().empty())
     {
