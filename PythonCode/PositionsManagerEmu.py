@@ -4,7 +4,7 @@ import threading
 import tkinter as tk
 
 # --- Configuration ---
-PORT = 5555
+PORT = 15555
 HOST = '127.0.0.1'
 
 # --- UI Constants ---
