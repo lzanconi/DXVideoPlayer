@@ -509,10 +509,12 @@ void PlaybackManager::PlayTrackOnLayer(const std::string& videoName, std::unique
 void PlaybackManager::PlaySequenceItem(DeferredCommand& cmd)
 {
 	AppState& state = appInterface->GetAppState();
-	int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
-	if (matchIdx != -1)
+	//int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
+	int foundVideo = state.sourcesMap.count(GetFilenameFromPath(cmd.filename));
+	if (foundVideo)
 	{
-		PlayTrackOnLayerIndex(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
+		//PlayTrackOnLayerIndex(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
+		PlayTrackOnLayer(GetFilenameFromPath(cmd.filename), foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
 	}
 }
 
@@ -620,7 +622,7 @@ void PlaybackManager::ProcessDeferredCommands()
 			case NetworkCommandType::Stop:
 			{
 				std::cout << ">>> [PlaybackManager] Processing deferred 'stop' action." << std::endl;
-				ForceStopBackgroundLayer(1.0f);
+				//ForceStopBackgroundLayer(1.0f);
 				ForceStopForegroundLayers(1.0f);
 				break;
 			}
@@ -693,6 +695,7 @@ void PlaybackManager::ProcessDeferredCommands()
 				std::cout << "[PlaybackManager] Processing deferred 'play_sequence': " << cmd.filename << std::endl;
 
 				Sequence* targetSequence = nullptr;	
+				//Find the sequence matching the command filename
 				for (auto seq : state.sequences)
 				{
 					if (seq->name == cmd.filename)
@@ -708,7 +711,7 @@ void PlaybackManager::ProcessDeferredCommands()
 					break;
 				}
 
-				if (foregroundActive && foregroundTrack && foregroundTrack->IsActive())
+				if (foregroundActive)
 				{
 					std::cout << "[PlaybackManager] Foreground busy. Buffering sequence, forcing fade out." << std::endl;
 
@@ -719,7 +722,14 @@ void PlaybackManager::ProcessDeferredCommands()
 					{
 						activeSequence->Stop();
 					}
-					foregroundTrack->StartForcedFadeOut(cmd.fadeOutDuration);
+
+					// Only trigger the fade-out if the track is still actively rendering.
+					// If it has already ended, ResetForegroundLayer() will clear foregroundActive
+					// on the next UpdateLayers() call, which then triggers HandlePendingSequenceCmd().
+					if (foregroundTrack && foregroundTrack->IsActive())
+					{
+						foregroundTrack->StartForcedFadeOut(1.0f);
+					}
 				}
 				else
 				{
@@ -728,13 +738,36 @@ void PlaybackManager::ProcessDeferredCommands()
 
 					if (activeSequence && !activeSequence->items.empty())
 					{
-						activeSequence->items[0].fadeInDuration = cmd.fadeInDuration;
-						activeSequence->items[activeSequence->items.size() - 1].fadeOutDuration = cmd.fadeOutDuration;
 						activeSequence->Stop();
 						activeSequence->Play(cmd.looped);
 					}
 				}
-				break;
+				//If the foreground layer is currently active and playing a video, we cannot start the sequence immediately because sequences take control of the foreground layer to play their videos, so we need to wait until the foreground layer is clear.
+				/*if (foregroundActive && foregroundTrack && foregroundTrack->IsActive())
+				{
+					std::cout << "[PlaybackManager] Foreground busy. Buffering sequence, forcing fade out." << std::endl;
+
+					pendingSequenceCmd = cmd;
+					hasPendingSequenceCmd = true;
+
+					if (activeSequence && activeSequence->isActive)
+					{
+						activeSequence->Stop();
+					}
+					foregroundTrack->StartForcedFadeOut(1.0f);
+				}
+				else
+				{
+					hasPendingSequenceCmd = false;
+					activeSequence = targetSequence;
+
+					if (activeSequence && !activeSequence->items.empty())
+					{
+						activeSequence->Stop();
+						activeSequence->Play(cmd.looped);
+					}
+				}
+				break;*/
 			}
 			case NetworkCommandType::PlayCover:
 			{

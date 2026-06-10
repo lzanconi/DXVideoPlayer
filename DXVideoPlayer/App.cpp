@@ -272,21 +272,6 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
             cmd.type = NetworkCommandType::PlaySequence;
             cmd.filename = j["play_sequence"].get<std::string>();
 
-            if (j.contains("fade_in_seconds"))
-            {
-                cmd.fadeInDuration = j["fade_in_seconds"].get<float>();
-            }
-
-            if (j.contains("fade_out_seconds"))
-            {
-                cmd.fadeOutDuration = j["fade_out_seconds"].get<float>();
-            }
-
-            if (j.contains("loop"))
-            {
-                cmd.looped = j["loop"].get<bool>();
-            }
-
             //Safely enqueue the command into the shared command queue with proper locking to ensure thread safety
 			playbackMgr->EnqueueNetworkCommand(cmd);
 
