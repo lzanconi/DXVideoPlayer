@@ -14,26 +14,7 @@ namespace fs = std::filesystem;
 
 ContentManager::ContentManager(IApp* appInterface) : appInterface(appInterface) {}
 
-void ContentManager::LoadContentsFromFolder(const std::string& folderPath)
-{
-    try
-    {
-        if (!fs::exists(folderPath) || !fs::is_directory(folderPath))
-        {
-            std::cerr << "Directory does not exist: " << folderPath << std::endl;
-            return;
-        }
-
-        LoadVideoContents(folderPath);
-
-    }
-    catch (const std::exception& e)
-    {
-        std::cerr << "Error loading contents from folder: " << e.what() << std::endl;
-    }
-}
-
-void ContentManager::LoadContents(const std::string& folderPath)
+void ContentManager::LoadContents()
 {
 	LoadVideoContentsFromConfig();
 
@@ -50,7 +31,8 @@ void ContentManager::LoadVideoContents(const std::string& folderPath)
         //Validates that the provided path exists and is a directory
         if (!fs::exists(folderPath) || !fs::is_directory(folderPath))
         {
-            std::cerr << "Directory does not exist: " << folderPath << std::endl;
+			std::string errorMsg = "[ERROR ContentManager LoadVideoContents] Directory does not exist: " + folderPath;
+            std::cerr << errorMsg << std::endl;
             return;
         }
 
@@ -142,31 +124,35 @@ void ContentManager::LoadVideoContents(const std::string& folderPath)
 void ContentManager::LoadVideoContentsFromConfig()
 {
     const Config& config = appInterface->GetConfig();
-    std::string chroeosConfig = config.choreos_config_file;
+    std::string choreosConfigFile = config.choreos_config_file;
+    std::string errorMsg;
 
-    if (!fs::exists(chroeosConfig))
+    if (!fs::exists(choreosConfigFile))
     {
-        std::cerr << "Choreography config file not found: " << chroeosConfig << std::endl;
+		errorMsg = "[ERROR ContentManager->LoadVideoContentsFromConfig] Choreography config file " + choreosConfigFile + " not found!";
+        std::cerr << errorMsg << std::endl;
         return;
     }
 
-    fs::path baseDir = fs::path(chroeosConfig).parent_path();
+    fs::path baseDir = fs::path(choreosConfigFile).parent_path();
 
     json j;
     try
     {
-        std::ifstream fstream(chroeosConfig);
+        std::ifstream fstream(choreosConfigFile);
         j = json::parse(fstream);
     }
     catch (const std::exception& e)
     {
-        std::cerr << "Error parsing choreos config file: " << e.what() << "\n";
+		errorMsg = "[ERROR ContentManager->LoadVideoContentsFromConfig] Error parsing choreos config file " + choreosConfigFile + ": " + e.what();
+        std::cerr << errorMsg << std::endl;
         return;
     }
 
     if (!j.contains("choreographies") || !j["choreographies"].is_array())
     {
-        std::cerr << "Warning: No 'choreographies' array in choreos config file.\n";
+        errorMsg = "[WARNING ContentManager->LoadVideoContentsFromConfig] No 'choreographies' array in choreos config file: " + choreosConfigFile;
+        std::cerr << errorMsg << std::endl;
         return;
     }
 
@@ -351,7 +337,8 @@ void ContentManager::LoadSequences(const std::string& folderPath, PlaybackManage
             if (filename.find("sequence") != std::string::npos)
             {
                 sequencePath = entry.path().string();
-                std::cout << ">> Found sequence file: " << sequencePath << std::endl;
+				std::string infoMsg = "[INFO ConfigManager->LoadSequences] Found sequence file " + sequencePath;
+                std::cout << infoMsg << std::endl;
                 std::string seqFilename = GetFilenameFromPath(sequencePath);
 
                 std::vector<SequenceItem> sequenceItems;
@@ -367,13 +354,15 @@ void ContentManager::LoadSequences(const std::string& folderPath, PlaybackManage
 
 void ContentManager::ParseSequenceFile(const std::string& filePath, std::vector<SequenceItem>& outItems)
 {
-    std::cout << ">> Parsing sequence file: " << filePath << std::endl;
+	std::string infoMsg = "[INFO ContentManager->ParseSequenceFile] Parsing sequence file " + filePath;
+    std::cout << infoMsg << std::endl;
 
     // Attempts to open the sequence definition text file at the provided file path.
     std::ifstream file(filePath);
     if (!file.is_open())
     {
-        std::cerr << "Failed to open sequence file: " << filePath << std::endl;
+		std::string errorMsg = "[ERROR ContentManager->ParseSequenceFile] Failed to open sequence file " + filePath;
+        std::cerr << errorMsg << std::endl;
         return;
     }
 
@@ -443,4 +432,9 @@ void ContentManager::ParseSequenceFile(const std::string& filePath, std::vector<
 const std::vector<VideoContent>& ContentManager::GetVideoContents() const
 {
     return videoContents;
+}
+
+const std::map<std::string, VideoContent>& ContentManager::GetVideoContentsMap() const
+{
+    return videoContentsMap;
 }

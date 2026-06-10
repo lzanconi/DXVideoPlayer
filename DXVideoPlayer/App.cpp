@@ -23,10 +23,9 @@ App::App(int width, int height)
 	configMgr->LoadConfig(".\\conf.json"); 
 
     contentMgr = new ContentManager(this);
-    contentMgr->LoadContentsFromFolder(".\\Videos");
-	contentMgr->LoadContents(".\\Videos");
+	contentMgr->LoadContents();
 
-    if (contentMgr->GetVideoContents().empty())
+    if (contentMgr->GetVideoContentsMap().empty())
     {
         /*std::cerr << "No .mp4 files found." << std::endl;*/
 		MessageBoxA(nullptr, "No .mp4 files found in the Videos folder.", "Error", MB_ICONERROR);
@@ -372,28 +371,34 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
 
 void App::LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context)
 {
-    for (const auto& videoContent : contentMgr->GetVideoContents())
+    for (const auto& videoContent : contentMgr->GetVideoContentsMap())
     {
+		std::string filename = videoContent.second.filename;
         VideoSource* videoSource = new VideoSource();
-        if (videoSource->OpenFile(videoContent.filename, renderer->GetDevice(), renderer->GetContext()))
+        if (videoSource->OpenFile(filename, renderer->GetDevice(), renderer->GetContext()))
         {
-            videoSource->fadeInDuration = videoContent.fadeInDuration;
-            videoSource->fadeOutDuration = videoContent.fadeOutDuration;
-            videoSource->looped = videoContent.looped;
-            videoSource->positions = videoContent.positions;
-			videoSource->events = videoContent.events;
+            videoSource->fadeInDuration = videoContent.second.fadeInDuration;
+            videoSource->fadeOutDuration = videoContent.second.fadeOutDuration;
+            videoSource->looped = videoContent.second.looped;
+			videoSource->positions = videoContent.second.positions;
+			videoSource->events = videoContent.second.events;
             state.sources.push_back(videoSource);
         }
         else
         {
-            std::cerr << "Failed to open video: " << videoContent.filename << std::endl;
-            delete videoSource;
+            std::cerr << "[ERROR App] Failed to open video: " << filename << std::endl;
         }
+
+        
     }
 
+	int numSources = state.sources.size();
+    std::string infoMsg = "[INFO App->LoadVideoSources]  Video sources loaded: " + std::to_string(numSources);
+    std::cout << infoMsg << std::endl;
     for (const auto& source : state.sources)
     {
-        std::cout << "VideoSource: " << source->filename << " Duration: " << GetDurationMinSec(static_cast<int>(source->duration)) << std::endl;
+        infoMsg = "     VideoSource: " + source->filename + " / Duration: " + GetDurationMinSec(static_cast<int>(source->duration));
+        std::cout << infoMsg << std::endl;
     }
 }
 

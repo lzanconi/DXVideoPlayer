@@ -18,8 +18,7 @@ public:
 	~ContentManager() = default;
 
 	// Scans the folder for .mp4 files and matching .csv position files
-	void LoadContentsFromFolder(const std::string& folderPath);	
-	void LoadContents(const std::string& folderPath);
+	void LoadContents();
 	
 	void LoadVideoContents(const std::string& folderPath);
 
@@ -27,6 +26,7 @@ public:
 
 	// Returns the list of loaded video content
 	const std::vector<VideoContent>& GetVideoContents() const;
+	const std::map<std::string, VideoContent>& GetVideoContentsMap() const;
 
 private:
 	void LoadVideoContentsFromConfig();
