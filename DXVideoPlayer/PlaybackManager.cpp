@@ -5,6 +5,7 @@
 #include "Sequence.h"
 #include "DXRenderer.h"
 #include "DXShader.h"
+#include "Logger.h"
 
 PlaybackManager::PlaybackManager(IApp* appInterface, DXShader* videoShader) 
 	: appInterface(appInterface), renderer(appInterface->GetAppState().renderer), videoShader(videoShader)
@@ -164,7 +165,7 @@ void PlaybackManager::HandlePendingBackgroundCmd(AppState& state)
 			int matchIdx = FindVideoSourceIndexByFilename(pendingBackgroundCmd.filename, state.sources);
 			if (matchIdx != -1)
 			{
-				PlayTrackOnLayer(matchIdx, backgroundTrack, backgroundActive, LayerType::Background, &pendingBackgroundCmd);
+				PlayTrackOnLayerIndex(matchIdx, backgroundTrack, backgroundActive, LayerType::Background, &pendingBackgroundCmd);
 			}
 		}
 	}
@@ -235,7 +236,7 @@ void PlaybackManager::HandleBackgroundEvents()
 						std::cout << "[Timeline Event] Firing foreground layer item: " << evt.filename
 							<< " at playhead pos: " << backgroundPTS << "s" << std::endl;
 
-						PlayTrackOnLayer(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
+						PlayTrackOnLayerIndex(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
 					}
 				}
 			}
@@ -325,7 +326,7 @@ void PlaybackManager::HandlePendingForegroundCmd(AppState& state)
 		{
 			// Instantly instantiate Video B and reset its properties ready to be played the next time we enter the Main Loop.
 			// The actual playback of Video B will be triggered in the next iteration of the Run loop once the current foreground video has fully finished and foregroundActive becomes false.
-			PlayTrackOnLayer(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &pendingForegroundCmd);
+			PlayTrackOnLayerIndex(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &pendingForegroundCmd);
 		}
 	}
 }
@@ -358,7 +359,7 @@ void PlaybackManager::HandlePendingCoverCmd(AppState& state)
 		int matchIdx = FindVideoSourceIndexByFilename(pendingCoverCmd.filename, state.sources);
 		if (matchIdx != -1)
 		{
-			PlayTrackOnLayer(matchIdx, coverTrack, coverActive, LayerType::Cover, &pendingCoverCmd);
+			PlayTrackOnLayerIndex(matchIdx, coverTrack, coverActive, LayerType::Cover, &pendingCoverCmd);
 		}
 	}
 }
@@ -403,7 +404,7 @@ void PlaybackManager::HandlePendingSequenceCmd()
 	}
 }
 
-void PlaybackManager::PlayTrackOnLayer(int videoSourceIdx, std::unique_ptr<VideoTrack>& targetTrack, bool& targetActiveFlag, const LayerType& layerType, DeferredCommand* cmd)
+void PlaybackManager::PlayTrackOnLayerIndex(int videoSourceIdx, std::unique_ptr<VideoTrack>& targetTrack, bool& targetActiveFlag, const LayerType& layerType, DeferredCommand* cmd)
 {
 	AppState& state = appInterface->GetAppState();
 
@@ -453,13 +454,64 @@ void PlaybackManager::PlayTrackOnLayer(int videoSourceIdx, std::unique_ptr<Video
 	targetActiveFlag = true;
 }
 
+void PlaybackManager::PlayTrackOnLayer(const std::string& videoName, std::unique_ptr<VideoTrack>& targetTrack, bool& targetActiveFlag, const LayerType& layerType, DeferredCommand* cmd)
+{
+	AppState& state = appInterface->GetAppState();
+
+	if (state.sourcesMap.find(videoName) == state.sourcesMap.end())
+	{
+		Logger::LogMessage(MESSAGE_TYPE::ERRORS, "PlaybackManager", "PlayTrackOnLayer", "Video source " + videoName + " not found!");
+		return;
+	}
+
+	Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "PlayTrackOnLayer", "Playing video: " + videoName + " on layer: " + LayerTypeToStr(layerType));
+	
+	//Update the video source properties based on the command parameters if provided
+	if (cmd)
+	{
+		state.sourcesMap[videoName]->fadeInDuration = cmd->fadeInDuration;
+		state.sourcesMap[videoName]->fadeOutDuration = cmd->fadeOutDuration;
+		state.sourcesMap[videoName]->looped = cmd->looped;
+	}
+
+	//Set initial alpha to 0 for fade-in effect
+	state.sourcesMap[videoName]->alpha = 0.0f;
+
+	VideoSource* source = state.sourcesMap[videoName];
+
+	// Dynamically update the passed track unique_ptr pointer structure
+	targetTrack = std::make_unique<VideoTrack>(state.sourcesMap[videoName]);
+	targetTrack->SetBlending(true);
+	targetTrack->Rewind();
+	targetTrack->Play(GetTimeStd());
+
+	// Force wrapper synchronization status explicitly
+	targetTrack->SetActive(true);
+
+	// Bootstrap first frame mapping context
+	ID3D11DeviceContext* ctx = renderer->GetContext();
+	state.sourcesMap[videoName]->GetNextFrame(ctx);
+
+	if (state.sourcesMap[videoName]->isFadingIn)
+	{
+		state.sourcesMap[videoName]->ComputeFadeIn();
+	}
+	else if (state.sourcesMap[videoName]->fadeInDuration > 0.0f)
+	{
+		state.sourcesMap[videoName]->alpha = 0.0f;
+	}
+
+	// Toggle the specific layer visibility state flag on
+	targetActiveFlag = true;
+}
+
 void PlaybackManager::PlaySequenceItem(DeferredCommand& cmd)
 {
 	AppState& state = appInterface->GetAppState();
 	int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
 	if (matchIdx != -1)
 	{
-		PlayTrackOnLayer(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
+		PlayTrackOnLayerIndex(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
 	}
 }
 
@@ -599,7 +651,7 @@ void PlaybackManager::ProcessDeferredCommands()
 					}
 					else
 					{
-						PlayTrackOnLayer(matchIdx, backgroundTrack, backgroundActive, LayerType::Background, &cmd);
+						PlayTrackOnLayerIndex(matchIdx, backgroundTrack, backgroundActive, LayerType::Background, &cmd);
 					}
 				}
 
@@ -630,7 +682,7 @@ void PlaybackManager::ProcessDeferredCommands()
 						{
 							activeSequence->Stop();
 						}
-						PlayTrackOnLayer(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
+						PlayTrackOnLayerIndex(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
 					}
 				}
 				break;
@@ -697,7 +749,7 @@ void PlaybackManager::ProcessDeferredCommands()
 					}
 					else
 					{
-						PlayTrackOnLayer(matchIdx, coverTrack, coverActive, LayerType::Cover, &cmd);
+						PlayTrackOnLayerIndex(matchIdx, coverTrack, coverActive, LayerType::Cover, &cmd);
 					}
 				}
 				break;

@@ -118,6 +118,13 @@ void ContentManager::LoadVideoContentsFromFolder()
 			content.name = videoName;
             content.filename = entry.path().string();
 
+			std::string coverFilename = GetFilenameFromPath(config.cover_filename);
+            if (content.name == coverFilename)
+            {
+                content.fadeInDuration = config.cover_fade_in_time;
+                content.fadeOutDuration = config.cover_fade_out_time;
+			}
+
             //LOAD CSV POSITIONS
             fs::path csvPath = entry.path();
             csvPath.replace_extension(".csv");

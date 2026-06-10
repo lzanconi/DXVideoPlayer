@@ -436,9 +436,13 @@ LRESULT App::HandleMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         return 0;
     }
     
-    if (msg == WM_KEYDOWN && wp == VK_SPACE) 
-        playbackMgr->PlayTrackOnLayer(1, playbackMgr->foregroundTrack, playbackMgr->foregroundActive, LayerType::Foreground);
-    
+    if (msg == WM_KEYDOWN && wp == VK_SPACE)
+    {
+        //playbackMgr->PlayTrackOnLayerIndex(1, playbackMgr->foregroundTrack, playbackMgr->foregroundActive, LayerType::Foreground);
+		playbackMgr->PlayTrackOnLayer("Cover_Toyota.mp4", playbackMgr->foregroundTrack, playbackMgr->foregroundActive, LayerType::Foreground);
+		return 0;
+    }
+
     if (msg == WM_KEYDOWN && wp == 'F')
         ToggleFullscreen(hwnd);
 
