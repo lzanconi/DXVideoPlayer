@@ -147,22 +147,22 @@ void App::SendTCPMessage(const std::string& message)
 
 VideoSource* App::GetBackgroundVideo()
 {
-    return playbackMgr->backgroundTrack ? playbackMgr->backgroundTrack->GetSource() : nullptr;
+    return playbackMgr->backgroundTrack->GetSource();
 }
 
 std::vector<float> App::GetPositions()
 {
-    return playbackMgr->backgroundTrack->GetSource()->positions;
+	return playbackMgr->backgroundTrack->GetSource()->positions;
 }
 
 double App::GetLastPTS()
 {
-	return state.sources[0]->lastPTS;
+    return playbackMgr->backgroundTrack->GetSource()->lastPTS;
 }
 
 int64_t App::GetBGCaptureTimeNS()
 {
-	return state.sources[0]->bg_capture_time_ns;
+    return playbackMgr->backgroundTrack->GetSource()->bg_capture_time_ns;
 }
 
 AppState& App::GetAppState()

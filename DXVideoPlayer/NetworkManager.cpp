@@ -9,6 +9,7 @@
 #include <algorithm>
 #include "PlaybackManager.h"
 #include "utils.h"
+#include "Logger.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -28,14 +29,16 @@ void NetworkManager::Start()
     {
         clientRunning = true;
         clientThread = std::thread(&NetworkManager::RunClient, this);
-        std::cout << "NetworkManager: Client background thread started." << std::endl;
+        //std::cout << "NetworkManager: Client background thread started." << std::endl;
+        Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "Start", "Client background thread started!");
     }
 
     if (!serverRunning)
     {
         serverRunning = true;
         serverThread = std::thread(&NetworkManager::RunServer, this);
-        std::cout << "NetworkManager: Server listener thread started on port " << listenPort << "." << std::endl;
+        //std::cout << "NetworkManager: Server listener thread started on port " << listenPort << "." << std::endl;
+        Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "Start", "Server listener thread started on port: " + std::to_string(listenPort));
     }
 }
 
@@ -77,7 +80,8 @@ void NetworkManager::Stop()
         serverThread.join();
     }
 
-    std::cout << "NetworkManager: All background threads stopped cleanly." << std::endl;
+    //std::cout << "NetworkManager: All background threads stopped cleanly." << std::endl;
+    Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "Stop", "All background threads stopped cleanly!");
 }
 
 //##########################################################################################
@@ -118,7 +122,8 @@ void NetworkManager::RunClient()
 
 
         //std::cout << "[Network Client] Attempting to connect to server at " << serverIP << ":" << serverPort << "..." << std::endl;
-		std::cout << "[Network Client] Attempting to connect to server at " << config.target_ip << ":" << config.target_port << "..." << std::endl;
+		//std::cout << "[Network Client] Attempting to connect to server at " << config.target_ip << ":" << config.target_port << "..." << std::endl;
+		Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunClient", "Attempting to connect to server at " + config.target_ip + ":" + std::to_string(config.target_port) + "...");
         if (connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
         {
             std::lock_guard<std::mutex> lock(clientSocketMutex);
@@ -131,7 +136,8 @@ void NetworkManager::RunClient()
             continue;
         }
 
-        std::cout << "[Network Client]: Client connected to Position Server." << std::endl;
+        //std::cout << "[Network Client]: Client connected to Position Server." << std::endl;
+		Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunClient", "Client connected to Position Server!");
         HandlePositionSend(clientSocket);
 
         {
@@ -275,7 +281,8 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
                     if (newSpeed > 0) newSpeed = 0;
                 }
 
-                std::cout << "[Network Client] New Speed: " << newSpeed << std::endl;
+                //std::cout << "[Network Client] New Speed: " << newSpeed << std::endl;
+				Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "HandlePositionSend", "New Speed: " + std::to_string(newSpeed));
 
                 pos_value = last_known_position + (float)(newSpeed * dt_sec);
                 last_known_position = pos_value;
@@ -324,7 +331,8 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
                 {
                     percentage = 1.0;
                     playbackMgr->transitionMode = false;
-                    std::cout << "### MOVE FINISHED @ " << playbackMgr->transitionTargetPosition << std::endl;
+                    //std::cout << "### MOVE FINISHED @ " << playbackMgr->transitionTargetPosition << std::endl;
+					Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "HandlePositionSend", "Move finished at position: " + std::to_string(playbackMgr->transitionTargetPosition));
                 }
 
                 double smooth_perc = smoothStep(percentage);
@@ -333,8 +341,10 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
 
                 static int log_cnt = 0;
                 if (log_cnt++ % 12 == 0) {
-					std::cout << "### TRANSITION: " << playbackMgr->transitionStartPosition << " -> " << playbackMgr->transitionTargetPosition
-                        << " | P: " << (int)(percentage * 100) << "% | VEL/s: " << (int)current_speed << std::endl;
+					/*std::cout << "### TRANSITION: " << playbackMgr->transitionStartPosition << " -> " << playbackMgr->transitionTargetPosition
+                        << " | P: " << (int)(percentage * 100) << "% | VEL/s: " << (int)current_speed << std::endl;*/
+					Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "HandlePositionSend", "Transition: " + std::to_string(playbackMgr->transitionStartPosition) + " -> " + std::to_string(playbackMgr->transitionTargetPosition)
+						+ " | P: " + std::to_string((int)(percentage * 100)) + "% | VEL/s: " + std::to_string((int)current_speed));
                 }
             }
         }
@@ -357,7 +367,8 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
         if (len > 0) {
             if (send(socket, msg_buffer, len + 1, 0) == -1)
             {
-                std::cout << "[Network Client] Connection lost." << std::endl;
+                //std::cout << "[Network Client] Connection lost." << std::endl;
+				Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "HandlePositionSend", "Connection lost while sending data to server.");
                 break;
             }
         }
@@ -398,7 +409,8 @@ void NetworkManager::RunServer()
 
         if (bind(localListenSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
         {
-            std::cerr << "[Network Server] Bind failed on port " << listenPort << std::endl;
+            //std::cerr << "[Network Server] Bind failed on port " << listenPort << std::endl;
+			Logger::LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "RunServer", "Bind failed on port: " + std::to_string(listenPort));
             closesocket(localListenSocket);
             std::this_thread::sleep_for(std::chrono::seconds(2));
             continue;
@@ -411,7 +423,8 @@ void NetworkManager::RunServer()
             continue;
         }
 
-        std::cout << "[Network Server] Server listening on port " << listenPort << "..." << std::endl;
+        //std::cout << "[Network Server] Server listening on port " << listenPort << "..." << std::endl;
+		Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunServer", "Server listening on port: " + std::to_string(listenPort) + "...");
 
         {
             std::lock_guard<std::mutex> lock(serverSocketMutex);
@@ -443,7 +456,8 @@ void NetworkManager::RunServer()
             inet_ntop(AF_INET, &clientAddr.sin_addr, clientIPStr, INET_ADDRSTRLEN);
 
             // --- NEW: Print connection message immediately ---
-            std::cout << "[Network Server] [+] New client connected from: " << clientIPStr << std::endl;
+            //std::cout << "[Network Server] [+] New client connected from: " << clientIPStr << std::endl;
+			Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunServer", "New client connected from: " + std::string(clientIPStr));
 
             appInterface->SetClientSocket(inboundClient);
 
@@ -482,7 +496,8 @@ void NetworkManager::HandleIncomingConnection(SOCKET clientSocket)
         }
         else if (bytesReceived == 0)
         {
-            std::cout << "[Network Server] [-] Client disconnected gracefully." << std::endl;
+            //std::cout << "[Network Server] [-] Client disconnected gracefully." << std::endl;
+			Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "HandleIncomingConnection", "Client disconnected gracefully.");
             break;
         }
         else
@@ -492,7 +507,8 @@ void NetworkManager::HandleIncomingConnection(SOCKET clientSocket)
             {
                 continue; // Timeout passed, verify loop state safely
             }
-            std::cout << "[Network Server] [-] Client connection lost abruptly." << std::endl;
+            //std::cout << "[Network Server] [-] Client connection lost abruptly." << std::endl;
+			Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "HandleIncomingConnection", "Client connection lost abruptly. Error code: " + std::to_string(err));
             break;
         }
     }
