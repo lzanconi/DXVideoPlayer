@@ -298,7 +298,10 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
         if (j.contains("play_cover"))
         {
             cmd.type = NetworkCommandType::PlayCover;
-            cmd.filename = j["play_cover"].get<std::string>();
+			const Config& config = GetConfig();
+            //Because we use the cover file from config, we override any filename sent in the command
+            //cmd.filename = j["play_cover"].get<std::string>();
+			cmd.filename = GetFilenameFromPath(config.cover_filename);
 
             if (j.contains("fade_in_seconds")) {
                 cmd.fadeInDuration = j["fade_in_seconds"].get<float>();

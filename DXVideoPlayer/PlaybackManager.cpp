@@ -163,10 +163,10 @@ void PlaybackManager::HandlePendingBackgroundCmd(AppState& state)
 		if (hasPendingBackgroundCmd)
 		{
 			hasPendingBackgroundCmd = false;
-			int matchIdx = FindVideoSourceIndexByFilename(pendingBackgroundCmd.filename, state.sources);
-			if (matchIdx != -1)
+			int foundVideo = state.sourcesMap.count(pendingBackgroundCmd.filename);
+			if (foundVideo)
 			{
-				PlayTrackOnLayerIndex(matchIdx, backgroundTrack, backgroundActive, LayerType::Background, &pendingBackgroundCmd);
+				PlayTrackOnLayer(pendingBackgroundCmd.filename, backgroundTrack, backgroundActive, LayerType::Background, &pendingBackgroundCmd);
 			}
 		}
 	}
@@ -322,12 +322,12 @@ void PlaybackManager::HandlePendingForegroundCmd(AppState& state)
 	{
 		hasPendingForegroundCmd = false;
 
-		int matchIdx = FindVideoSourceIndexByFilename(pendingForegroundCmd.filename, state.sources);
-		if (matchIdx != -1)
+		int foundVideo = state.sourcesMap.count(pendingForegroundCmd.filename);
+		if (foundVideo)
 		{
 			// Instantly instantiate Video B and reset its properties ready to be played the next time we enter the Main Loop.
 			// The actual playback of Video B will be triggered in the next iteration of the Run loop once the current foreground video has fully finished and foregroundActive becomes false.
-			PlayTrackOnLayerIndex(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &pendingForegroundCmd);
+			PlayTrackOnLayer(pendingForegroundCmd.filename, foregroundTrack, foregroundActive, LayerType::Foreground, &pendingForegroundCmd);
 		}
 	}
 }
@@ -357,10 +357,10 @@ void PlaybackManager::HandlePendingCoverCmd(AppState& state)
 	if (!coverActive && hasPendingCoverCmd)
 	{
 		hasPendingCoverCmd = false;
-		int matchIdx = FindVideoSourceIndexByFilename(pendingCoverCmd.filename, state.sources);
-		if (matchIdx != -1)
+		int foundVideo = state.sourcesMap.count(pendingCoverCmd.filename);
+		if (foundVideo > 0)
 		{
-			PlayTrackOnLayerIndex(matchIdx, coverTrack, coverActive, LayerType::Cover, &pendingCoverCmd);
+			PlayTrackOnLayer(pendingCoverCmd.filename, coverTrack, coverActive, LayerType::Cover, &pendingCoverCmd);
 		}
 	}
 }
@@ -628,9 +628,9 @@ void PlaybackManager::ProcessDeferredCommands()
 			case NetworkCommandType::PlayBackground:
 			{
 				std::cout << "[PlaybackManager] Processing deferred 'play_background': " << cmd.filename << std::endl;
-				int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
+				int foundVideo = state.sourcesMap.count(cmd.filename);
 
-				if (matchIdx != -1)
+				if (foundVideo > 0)
 				{
 					if (foregroundActive && foregroundTrack && foregroundTrack->IsActive())
 					{
@@ -652,7 +652,7 @@ void PlaybackManager::ProcessDeferredCommands()
 					}
 					else
 					{
-						PlayTrackOnLayerIndex(matchIdx, backgroundTrack, backgroundActive, LayerType::Background, &cmd);
+						PlayTrackOnLayer(cmd.filename, backgroundTrack, backgroundActive, LayerType::Background, &cmd);
 					}
 				}
 
@@ -662,9 +662,9 @@ void PlaybackManager::ProcessDeferredCommands()
 			case NetworkCommandType::PlayForeground:
 			{
 				std::cout << "[PlaybackManager] Processing deferred 'play_foreground': " << cmd.filename << std::endl;
-				int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
+				int foundVideo = state.sourcesMap.count(cmd.filename);
 
-				if (matchIdx != -1)
+				if (foundVideo > 0)
 				{
 					if (foregroundActive && foregroundTrack && foregroundTrack->IsActive())
 					{
@@ -683,7 +683,7 @@ void PlaybackManager::ProcessDeferredCommands()
 						{
 							activeSequence->Stop();
 						}
-						PlayTrackOnLayerIndex(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
+						PlayTrackOnLayer(cmd.filename, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
 					}
 				}
 				break;
@@ -739,8 +739,8 @@ void PlaybackManager::ProcessDeferredCommands()
 			case NetworkCommandType::PlayCover:
 			{
 				std::cout << "[PlaybackManager] Processing deferred 'play_cover': " << cmd.filename << std::endl;
-				int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
-				if (matchIdx != -1)
+				int foundVideo = state.sourcesMap.count(cmd.filename);
+				if (foundVideo > 0)
 				{
 					if (coverActive && coverTrack && coverTrack->IsActive())
 					{
@@ -750,7 +750,8 @@ void PlaybackManager::ProcessDeferredCommands()
 					}
 					else
 					{
-						PlayTrackOnLayerIndex(matchIdx, coverTrack, coverActive, LayerType::Cover, &cmd);
+						//PlayTrackOnLayerIndex(matchIdx, coverTrack, coverActive, LayerType::Cover, &cmd);
+						PlayTrackOnLayer(cmd.filename, coverTrack, coverActive, LayerType::Cover, &cmd);	
 					}
 				}
 				break;
