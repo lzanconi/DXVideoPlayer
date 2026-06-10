@@ -54,6 +54,7 @@ public:
     void SetActive(bool active) { isActive = active; }
     bool IsActive() const { return isActive; }
     void SetBlending(bool blend) { shouldBlend = blend; }
+    void Looped(bool shouldLoop);
     VideoSource* GetSource() { return videoSource; }
 };
 

@@ -33,6 +33,7 @@ void PlaybackManager::InitializeVideoTracks()
 	coverTrack->SetBlending(true);
 
 	backgroundActive = true;
+	backgroundTrack->Looped(true);
 
 	//Starts the playback of the background track immediately without any fade-in effect, using the current time as the starting point for synchronization.
 	backgroundTrack->Play(GetTimeStd());

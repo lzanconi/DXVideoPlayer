@@ -80,6 +80,11 @@ void VideoTrack::StartForcedFadeOut(float duration)
     videoSource->StartForcedFadeOut(duration);
 }
 
+void VideoTrack::Looped(bool shouldLoop)
+{
+    GetSource()->looped = shouldLoop;
+}
+
 /*
 * PHASE 1: UpdateFrame() -> Decodes the next frame from FFmpeg and updates alpha without any blocking calls
 */
