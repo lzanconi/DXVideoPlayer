@@ -52,8 +52,8 @@ struct BackgroundEvent
 {
     std::string filename;
     float startTime = 0.0f;
-    float fadeInDuration = 1.0f;
-    float fadeOutDuration = 1.0f;
+    float fadeInDuration = 0.0f;
+    float fadeOutDuration = 0.0f;
     float duration = 0.0f;
     bool triggered = false;
 };
