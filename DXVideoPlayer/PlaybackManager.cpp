@@ -223,21 +223,29 @@ void PlaybackManager::HandleBackgroundEvents()
 				else
 				{
 					//Find the index of the video source matching the event filename
-					int matchIdx = FindVideoSourceIndexByFilename(evt.filename, state.sources);
-					if (matchIdx != -1)
+					//int matchIdx = FindVideoSourceIndexByFilename(evt.filename, state.sources);
+					int foundVideo = state.sourcesMap.count(evt.filename);
+					if (foundVideo > 0)
 					{
 						//Creates a local DeferredCommand to play the foreground video
 						DeferredCommand cmd;
 						cmd.type = NetworkCommandType::PlayForeground;
 						cmd.filename = evt.filename;
-						cmd.fadeInDuration = evt.fadeInDuration;
+
+						if (evt.fadeInDuration < 0.0f)
+						{
+							cmd.fadeInDuration = state.sourcesMap[evt.filename]->fadeInDuration;
+						}
+						else
+						{
+							cmd.fadeInDuration = evt.fadeInDuration;
+						}
+						
 						cmd.fadeOutDuration = evt.fadeOutDuration;
 						cmd.looped = false;
 
-						std::cout << "[Timeline Event] Firing foreground layer item: " << evt.filename
-							<< " at playhead pos: " << backgroundPTS << "s" << std::endl;
-
-						PlayTrackOnLayerIndex(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
+						Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "HandleBackgroundEvents", "Firing foreground layer item: " + evt.filename + " at playhead pos: " + std::to_string(backgroundPTS) + "s");
+						PlayTrackOnLayer(evt.filename, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
 					}
 				}
 			}
@@ -390,7 +398,7 @@ void PlaybackManager::HandlePendingSequenceCmd()
 			activeSequence = targetSequence;
 
 			activeSequence->Stop(); // Reset the sequence state to ensure it starts from the beginning
-			activeSequence->Play();
+			activeSequence->Play(pendingSequenceCmd.fadeInDuration);
 		}
 		else
 		{
@@ -733,7 +741,7 @@ void PlaybackManager::ProcessDeferredCommands()
 					if (activeSequence && !activeSequence->items.empty())
 					{
 						activeSequence->Stop();
-						activeSequence->Play();
+						activeSequence->Play(cmd.fadeInDuration);
 					}
 				}
 

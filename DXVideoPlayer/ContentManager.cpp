@@ -200,6 +200,8 @@ void ContentManager::LoadBackgroundEvents(VideoContent& content, const std::stri
         std::string token;
         BackgroundEvent evt;
 
+        evt.fadeInDuration = -1.0f;
+
         // Parse key-value pairs split by commas: file=3.mp4, start-time=17.00 ...
         while (std::getline(ss, token, ','))
         {

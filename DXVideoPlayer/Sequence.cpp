@@ -7,7 +7,7 @@ Sequence::Sequence(std::string& name, const std::vector<SequenceItem>& items, Pl
 	: name(name), items(items), playbackMgr(playbackMgr)
 { }
 
-void Sequence::Play()
+void Sequence::Play(float overrideFadeIn)
 {
 	if (items.empty())
 	{
@@ -23,7 +23,16 @@ void Sequence::Play()
 	DeferredCommand cmd;
 	cmd.type = NetworkCommandType::PlayForeground;
 	cmd.filename = items[currentIndex].filename;
-	cmd.fadeInDuration = items[currentIndex].fadeInDuration;
+
+	if (overrideFadeIn >= 0.0f)
+	{
+		Logger::LogMessage(MESSAGE_TYPE::INFO, "Sequence", "Play", "Applying automated timeline event override fade-in: " + std::to_string(overrideFadeIn) + "s");
+		cmd.fadeInDuration = overrideFadeIn;
+	}
+	else
+	{
+		cmd.fadeInDuration = items[currentIndex].fadeInDuration;
+	}
 	cmd.fadeOutDuration = items[currentIndex].fadeOutDuration;
 	cmd.looped = items[currentIndex].looped;
 

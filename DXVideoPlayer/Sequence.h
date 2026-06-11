@@ -20,7 +20,7 @@ public:
 	Sequence(std::string& name, const std::vector<SequenceItem>& items, PlaybackManager* playbackMgr);
 	~Sequence() = default;
 
-	void Play();
+	void Play(float overrideFadeIn = -1.0f);
 	void Stop();
 	void AdvanceSequence();
 };

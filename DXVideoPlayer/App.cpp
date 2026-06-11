@@ -272,6 +272,9 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
             cmd.type = NetworkCommandType::PlaySequence;
             cmd.filename = j["play_sequence"].get<std::string>();
 
+			//Initially set fadeInDuration to -1 to indicate that the sequence should use the default fade-in durations specified for each item, but allow it to be overridden by an optional parameter in the command
+            cmd.fadeInDuration = -1.0;
+
             //Safely enqueue the command into the shared command queue with proper locking to ensure thread safety
 			playbackMgr->EnqueueNetworkCommand(cmd);
 
