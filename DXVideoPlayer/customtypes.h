@@ -46,7 +46,6 @@ struct Config
     float cover_fade_in_time = 0.0f;
     float cover_fade_out_time = 0.0f;
     bool  disable_cover = false;
-    std::map<std::string, TargetPosition> target_positions;
 };
 
 struct BackgroundEvent

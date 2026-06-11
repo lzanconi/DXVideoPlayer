@@ -113,7 +113,7 @@ void ConfigManager::LoadConfig(const fs::path& filePath)
                 config.disable_cover = cover["disable_cover"].get<bool>();
         }
 
-        if (j.contains("target_positions") && j["target_positions"].is_object()) {
+        /*if (j.contains("target_positions") && j["target_positions"].is_object()) {
             config.target_positions.clear();
             for (auto& [key, value] : j["target_positions"].items()) {
                 TargetPosition tp;
@@ -123,7 +123,7 @@ void ConfigManager::LoadConfig(const fs::path& filePath)
                 tp.fade_in_seconds = value.value("fade_in_seconds", 0.0f);
                 config.target_positions[key] = tp;
             }
-        }
+        }*/
 
         /*load_env_file("./.env");
         load_env_file("../.env");*/
