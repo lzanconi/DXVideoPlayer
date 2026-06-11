@@ -357,6 +357,7 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
         int len = snprintf(msg_buffer, sizeof(msg_buffer), "{\"positions\":[%.4f]}", pos_value);
         previousSentPosition = last_known_position;
         last_known_position = pos_value;
+		appInterface->GetAppState().lastSentPosition = pos_value;
 
         for (int i = 0; i < len; i++)
         {

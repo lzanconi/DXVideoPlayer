@@ -15,6 +15,7 @@ struct AppState
 	std::vector<Sequence*> sequences;
     IRenderer* renderer = nullptr;
     NetworkManager* networkMgr = nullptr;
+	float lastSentPosition = 0.0f;
  };
 
 struct TargetPosition {
