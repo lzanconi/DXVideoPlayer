@@ -782,17 +782,6 @@ void PlaybackManager::ProcessDeferredCommands()
 				}
 				break;
 			}
-
-			case NetworkCommandType::TransitionTo:
-			{
-				std::cout << "[PlaybackManager] Processing deferred 'transition_to' action: " << cmd.filename << std::endl;
-				Config config = appInterface->GetConfig();
-				stopping = true;
-				transitionMode = true;
-				std::string filename = GetNameFromFile(cmd.filename);
-				auto targetPosition = config.target_positions[filename];
-				transitionTargetPosition = targetPosition.position;
-			}
 		}
 	}
 }

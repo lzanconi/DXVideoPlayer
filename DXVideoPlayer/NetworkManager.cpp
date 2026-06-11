@@ -7,9 +7,6 @@
 #include <windows.h>
 #include <cmath>
 #include <algorithm>
-#include "PlaybackManager.h"
-#include "utils.h"
-#include "Logger.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -29,16 +26,14 @@ void NetworkManager::Start()
     {
         clientRunning = true;
         clientThread = std::thread(&NetworkManager::RunClient, this);
-        //std::cout << "NetworkManager: Client background thread started." << std::endl;
-        Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "Start", "Client background thread started!");
+        std::cout << "NetworkManager: Client background thread started." << std::endl;
     }
 
     if (!serverRunning)
     {
         serverRunning = true;
         serverThread = std::thread(&NetworkManager::RunServer, this);
-        //std::cout << "NetworkManager: Server listener thread started on port " << listenPort << "." << std::endl;
-        Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "Start", "Server listener thread started on port: " + std::to_string(listenPort));
+        std::cout << "NetworkManager: Server listener thread started on port " << listenPort << "." << std::endl;
     }
 }
 
@@ -80,8 +75,7 @@ void NetworkManager::Stop()
         serverThread.join();
     }
 
-    //std::cout << "NetworkManager: All background threads stopped cleanly." << std::endl;
-    Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "Stop", "All background threads stopped cleanly!");
+    std::cout << "NetworkManager: All background threads stopped cleanly." << std::endl;
 }
 
 //##########################################################################################
@@ -112,18 +106,17 @@ void NetworkManager::RunClient()
             activeClientSocket = clientSocket;
         }
 
-		Config config = appInterface->GetConfig();
+        Config config = appInterface->GetConfig();
         sockaddr_in serverAddr;
         serverAddr.sin_family = AF_INET;
         /*serverAddr.sin_port = htons(serverPort);
         inet_pton(AF_INET, serverIP.c_str(), &serverAddr.sin_addr);*/
-		serverAddr.sin_port = htons(config.target_port);
-		inet_pton(AF_INET, config.target_ip.c_str(), &serverAddr.sin_addr);
+        serverAddr.sin_port = htons(config.target_port);
+        inet_pton(AF_INET, config.target_ip.c_str(), &serverAddr.sin_addr);
 
 
         //std::cout << "[Network Client] Attempting to connect to server at " << serverIP << ":" << serverPort << "..." << std::endl;
-		//std::cout << "[Network Client] Attempting to connect to server at " << config.target_ip << ":" << config.target_port << "..." << std::endl;
-		Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunClient", "Attempting to connect to server at " + config.target_ip + ":" + std::to_string(config.target_port) + "...");
+        std::cout << "[Network Client] Attempting to connect to server at " << config.target_ip << ":" << config.target_port << "..." << std::endl;
         if (connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
         {
             std::lock_guard<std::mutex> lock(clientSocketMutex);
@@ -136,8 +129,7 @@ void NetworkManager::RunClient()
             continue;
         }
 
-        //std::cout << "[Network Client]: Client connected to Position Server." << std::endl;
-		Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunClient", "Client connected to Position Server!");
+        std::cout << "[Network Client]: Client connected to Position Server." << std::endl;
         HandlePositionSend(clientSocket);
 
         {
@@ -152,17 +144,19 @@ void NetworkManager::RunClient()
 
 void NetworkManager::HandlePositionSend(SOCKET socket)
 {
+    /*auto period_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::duration<double>(1.0 / positions_framerate)
+    );*/
     auto period_duration = std::chrono::milliseconds(appInterface->GetConfig().send_period_ms);
     char msg_buffer[64];
     float last_known_position = 0.0f;
     double scale = appInterface->GetConfig().positions_scale;
     double offset = appInterface->GetConfig().positions_offset;
-    float brakeAcceleration = 200;
+    float brakeAcceleration = 200.0;
     auto next_frame = std::chrono::steady_clock::now() + period_duration;
     float previousSentPosition = 0.0f;
     double current_speed = 0.0f;
     positions_delay_ms = appInterface->GetConfig().positions_delay_ms;
-    PlaybackManager* playbackMgr = appInterface->GetPlaybackManager();
 
     while (clientRunning)
     {
@@ -183,182 +177,49 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
         float pos_value = 0.0f;
         double progress_pct = 0.0;
 
+
         std::vector<float> positions = appInterface->GetPositions();
+        double last_video_time = appInterface->GetLastPTS();
+        int64_t capture_time_ns = appInterface->GetBGCaptureTimeNS();
+        double calc_time = 0.0;
 
-        if (!positions.empty())
+        if (capture_time_ns > 0)
         {
-            double last_video_time = appInterface->GetLastPTS();
-            int64_t capture_time_ns = appInterface->GetBGCaptureTimeNS();
-            double calc_time = 0.0;
+            int64_t elapsed_ns = trigger_ns - capture_time_ns;
+            double elapsed_sec = (double)elapsed_ns / 1000000000.0;
 
-            if (capture_time_ns > 0)
-            {
-                int64_t elapsed_ns = trigger_ns - capture_time_ns;
-                double elapsed_sec = (double)elapsed_ns / 1000000000.0;
+            if (elapsed_sec > 2)
+                elapsed_sec = 0;
 
-                if (elapsed_sec > 2)
-                    elapsed_sec = 0;
-
-                calc_time = last_video_time + elapsed_sec;
-            }
-            else
-            {
-                calc_time = last_video_time;
-            }
-
-            double delay_s = positions_delay_ms / 1000.0;
-            calc_time -= delay_s;
-            if (calc_time < 0.0)
-                calc_time = 0.0;
-
-            int count = (int)positions.size();
-            double exact_index = calc_time * positions_framerate;
-            int base_idx = (int)std::floor(exact_index);
-            double frac = exact_index - base_idx;
-
-            int idx0 = (std::min)(base_idx, count - 1);
-            int idx1 = (std::min)(base_idx + 1, count - 1);
-
-            if (idx0 < 0) idx0 = 0;
-            if (idx1 < 0) idx1 = 0;
-
-            float val0 = positions[idx0];
-            float val1 = positions[idx1];
-
-            float calculated_csv_pos = (float)(val0 * (1.0 - frac) + val1 * frac) * scale + offset;
-
-            if (!playbackMgr->transitionMode)
-            {
-                pos_value = calculated_csv_pos;
-                if (playbackMgr->backgroundTrack->IsActive())
-                {
-                    last_known_position = pos_value;
-                }
-            }
-            else
-            {
-                pos_value = last_known_position;
-            }
-
-            if (count > 0)
-            {
-                progress_pct = exact_index / (double)count;
-                if (progress_pct > 1.0)
-                {
-                    progress_pct = 1.0;
-                }
-            }
+            calc_time = last_video_time + elapsed_sec;
         }
         else
         {
-            pos_value = last_known_position;
+            calc_time = last_video_time;
         }
 
-        double dt_sec = period_duration.count() / 1000.0;
-        if (dt_sec <= 0.001) dt_sec = 0.040;
-        if (!playbackMgr->stopping)
-            current_speed = (double)(last_known_position - previousSentPosition) / dt_sec;
-        /*std::cout << "[Network Client] Calculated position: " << last_known_position << " | Speed: " << current_speed << std::endl;*/
+        double delay_s = positions_delay_ms / 1000.0;
+        calc_time -= delay_s;
+        if (calc_time < 0.0)
+            calc_time = 0.0;
 
-        if (playbackMgr->transitionMode)
-        {
-            //PHASE 1 - BRAKE TO STOP
-            if (playbackMgr->stopping)
-            {
-                progress_pct = 0.0;
-                //Check in which direction the monitor is moving
-                int movementDir = GetMovementDirection(current_speed);
+        int count = (int)positions.size();
+        double exact_index = calc_time * positions_framerate;
+        int base_idx = (int)std::floor(exact_index);
+        double frac = exact_index - base_idx;
 
-                // Accelerate toward zero (brake)
-                double brake_dv = brakeAcceleration * dt_sec;
-                double newSpeed = current_speed;
-                if (current_speed > 0) {
-                    newSpeed -= brake_dv;
-                    if (newSpeed < 0) newSpeed = 0;
-                }
-                else if (current_speed < 0) {
-                    newSpeed += brake_dv;
-                    if (newSpeed > 0) newSpeed = 0;
-                }
+        int idx0 = (std::min)(base_idx, count - 1);
+        int idx1 = (std::min)(base_idx + 1, count - 1);
 
-                //std::cout << "[Network Client] New Speed: " << newSpeed << std::endl;
-				Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "HandlePositionSend", "New Speed: " + std::to_string(newSpeed));
+        if (idx0 < 0) idx0 = 0;
+        if (idx1 < 0) idx1 = 0;
 
-                pos_value = last_known_position + (float)(newSpeed * dt_sec);
-                last_known_position = pos_value;
-                current_speed = newSpeed;
+        float val0 = positions[idx0];
+        float val1 = positions[idx1];
 
-                if (newSpeed == 0)
-                {
-					current_speed = 0.0;
-					playbackMgr->stopping = false;
+        float calculated_csv_pos = (float)(val0 * (1.0 - frac) + val1 * frac) * scale + offset;
 
-                    //COMPUTE DURATION
-                    // 1. Record the exact position where the braking finished
-					playbackMgr->transitionStartPosition = pos_value;
-                    playbackMgr->transitionStartTime = std::chrono::steady_clock::now();
-                    
-                    // 2. Calculate the distance left to travel
-                    float distanceToTravel = std::abs(playbackMgr->transitionTargetPosition - playbackMgr->transitionStartPosition);
-
-                    // 3. Define a comfortable average speed (e.g., units per millisecond)
-                    float desiredAverageSpeed = 200.0;
-
-                    // 4. Calculate the duration dynamically (in milliseconds)
-                    if (desiredAverageSpeed > 0.0f) 
-                    {
-                        playbackMgr->transitionDuration = (distanceToTravel / desiredAverageSpeed) * 1000.0; // convert to milliseconds
-                    }
-                    else 
-                    {
-                        playbackMgr->transitionDuration = 10000.0; // Fallback to 10 second to avoid divide-by-zero
-                    }
-
-                    //Clamp the transitionDuration so it doesn't take an eternity or happen too fast
-                    if (playbackMgr->transitionDuration < 500.0) 
-                        playbackMgr->transitionDuration = 500.0;   // Minimum 0.5s
-                    if (playbackMgr->transitionDuration > 20000.0) 
-                        playbackMgr->transitionDuration = 20000.0; // Maximum 20.0s
-                }
-            }
-            //PHASE 2 - MOVE TO A DESIRED POSITION
-            else
-            {
-                auto time_passed = std::chrono::duration_cast<std::chrono::milliseconds>(now - playbackMgr->transitionStartTime);
-                double percentage = (double)time_passed.count() / playbackMgr->transitionDuration;
-
-                if (percentage >= 1.0)
-                {
-                    percentage = 1.0;
-                    playbackMgr->transitionMode = false;
-                    //std::cout << "### MOVE FINISHED @ " << playbackMgr->transitionTargetPosition << std::endl;
-					Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "HandlePositionSend", "Move finished at position: " + std::to_string(playbackMgr->transitionTargetPosition));
-                }
-
-                double smooth_perc = smoothStep(percentage);
-                pos_value = (float)(playbackMgr->transitionStartPosition * (1.0 - smooth_perc) + playbackMgr->transitionTargetPosition * smooth_perc);
-                progress_pct = percentage;
-
-                static int log_cnt = 0;
-                if (log_cnt++ % 12 == 0) {
-					/*std::cout << "### TRANSITION: " << playbackMgr->transitionStartPosition << " -> " << playbackMgr->transitionTargetPosition
-                        << " | P: " << (int)(percentage * 100) << "% | VEL/s: " << (int)current_speed << std::endl;*/
-					Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "HandlePositionSend", "Transition: " + std::to_string(playbackMgr->transitionStartPosition) + " -> " + std::to_string(playbackMgr->transitionTargetPosition)
-						+ " | P: " + std::to_string((int)(percentage * 100)) + "% | VEL/s: " + std::to_string((int)current_speed));
-                }
-            }
-        }
-
-        if (!playbackMgr->backgroundTrack->IsActive() && !playbackMgr->stopping)
-        {
-			pos_value = last_known_position;
-        }
-
-        int len = snprintf(msg_buffer, sizeof(msg_buffer), "{\"positions\":[%.4f]}", pos_value);
-        previousSentPosition = last_known_position;
-        last_known_position = pos_value;
-		appInterface->GetAppState().lastSentPosition = pos_value;
-
+        int len = snprintf(msg_buffer, sizeof(msg_buffer), "{\"positions\":[%.4f]}", calculated_csv_pos);
         for (int i = 0; i < len; i++)
         {
             if (msg_buffer[i] == ',')
@@ -368,17 +229,14 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
         if (len > 0) {
             if (send(socket, msg_buffer, len + 1, 0) == -1)
             {
-                //std::cout << "[Network Client] Connection lost." << std::endl;
-				Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "HandlePositionSend", "Connection lost while sending data to server.");
+                std::cout << "[Network Client] Connection lost." << std::endl;
                 break;
             }
         }
 
+		appInterface->GetAppState().lastSentPosition = calculated_csv_pos;
+
         next_frame += period_duration;
-        if (std::chrono::steady_clock::now() > next_frame + period_duration)
-        {
-            next_frame = std::chrono::steady_clock::now() + period_duration;
-        }
     }
 }
 
@@ -410,8 +268,7 @@ void NetworkManager::RunServer()
 
         if (bind(localListenSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
         {
-            //std::cerr << "[Network Server] Bind failed on port " << listenPort << std::endl;
-			Logger::LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "RunServer", "Bind failed on port: " + std::to_string(listenPort));
+            std::cerr << "[Network Server] Bind failed on port " << listenPort << std::endl;
             closesocket(localListenSocket);
             std::this_thread::sleep_for(std::chrono::seconds(2));
             continue;
@@ -424,8 +281,7 @@ void NetworkManager::RunServer()
             continue;
         }
 
-        //std::cout << "[Network Server] Server listening on port " << listenPort << "..." << std::endl;
-		Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunServer", "Server listening on port: " + std::to_string(listenPort) + "...");
+        std::cout << "[Network Server] Server listening on port " << listenPort << "..." << std::endl;
 
         {
             std::lock_guard<std::mutex> lock(serverSocketMutex);
@@ -457,8 +313,7 @@ void NetworkManager::RunServer()
             inet_ntop(AF_INET, &clientAddr.sin_addr, clientIPStr, INET_ADDRSTRLEN);
 
             // --- NEW: Print connection message immediately ---
-            //std::cout << "[Network Server] [+] New client connected from: " << clientIPStr << std::endl;
-			Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunServer", "New client connected from: " + std::string(clientIPStr));
+            std::cout << "[Network Server] [+] New client connected from: " << clientIPStr << std::endl;
 
             appInterface->SetClientSocket(inboundClient);
 
@@ -497,8 +352,7 @@ void NetworkManager::HandleIncomingConnection(SOCKET clientSocket)
         }
         else if (bytesReceived == 0)
         {
-            //std::cout << "[Network Server] [-] Client disconnected gracefully." << std::endl;
-			Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "HandleIncomingConnection", "Client disconnected gracefully.");
+            std::cout << "[Network Server] [-] Client disconnected gracefully." << std::endl;
             break;
         }
         else
@@ -508,8 +362,7 @@ void NetworkManager::HandleIncomingConnection(SOCKET clientSocket)
             {
                 continue; // Timeout passed, verify loop state safely
             }
-            //std::cout << "[Network Server] [-] Client connection lost abruptly." << std::endl;
-			Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "HandleIncomingConnection", "Client connection lost abruptly. Error code: " + std::to_string(err));
+            std::cout << "[Network Server] [-] Client connection lost abruptly." << std::endl;
             break;
         }
     }

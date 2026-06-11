@@ -43,12 +43,6 @@ public:
 	bool backgroundActive = false;
 	bool foregroundActive = false;
 	bool coverActive = false;
-	bool transitionMode = false;
-	bool stopping = false;
-	std::chrono::time_point<std::chrono::steady_clock> transitionStartTime;
-	float transitionStartPosition = 0.0f;
-	float transitionTargetPosition = 0.0f;
-	float transitionDuration = 0.0f;
 	Sequence* activeSequence = nullptr;
 
 public:
