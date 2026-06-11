@@ -785,3 +785,200 @@ void PlaybackManager::ProcessDeferredCommands()
 		}
 	}
 }
+
+/*
+* This method controls the playback of position-aware choreography videos, deciding whether to play them immediately or orchestrate a smooth transition using a cover layer 
+* based on the physical position of the hardware system.
+*/
+void PlaybackManager::PlayChoreography(const std::string& filename, float fgFadeOut, float fadeIn, float fadeOut, int idVal, bool loopVid, bool forceCoverOnExit)
+{
+	Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "PlayChoreography", "Playing choreography '" + filename + "' fade_in=" + std::to_string(fadeIn)
+		+ "s fade_out=" + std::to_string(fadeOut) + "s force_cover_on_exit=" + (forceCoverOnExit ? "true" : "false"));
+
+	//If a valid ID (id_val != -1) is provided, it is cached into last_choreo_id. 
+	//This serves as a fallback ID if secondary elements (like foreground events triggered by this video) don't have their own specific tracking IDs.
+	if (idVal != -1)
+		lastChoreoId = idVal;
+
+	//Evaluates whether a cover video transition must be strictly enforced.
+	//This is true if either the last background (active_force_cover_on_exit) or an active foreground event (fg_active_force_cover_on_exit) requested it.
+	bool forceCover = activeForceCoverOnExit || fgActiveForceCoverOnExit;
+	//Immediately resets the foreground flag (consumes the event).
+	fgActiveForceCoverOnExit = false;
+	//Arms the flag for the next incoming choreography cycle using the current parameter.
+	activeForceCoverOnExit = forceCoverOnExit;
+
+	AppState& state = appInterface->GetAppState();
+
+	//Verifies the filename exists in the video sources map before attempting to play it
+	if (state.sourcesMap.find(filename) == state.sourcesMap.end()) 
+	{
+		Logger::LogMessage(MESSAGE_TYPE::ERRORS, "PlaybackManager", "PlayChoreography", "File '" + filename + "' not found!");
+		return;
+	}
+
+	//Extracts a reference to the metadata of the target video. This includes position data, event data, and other relevant information.
+	VideoSource* videoSource = state.sourcesMap[filename];
+
+	// Fallback to standard background playback if no explicit position timeline exists
+	if (videoSource->positions.empty()) 
+	{
+		std::cout << "Choreo: No positions for '" << filename << "'. Playing as background." << std::endl;
+		Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "PlayChoreography", "No positions found for '" + filename + "'. Plays like a standard background video.");
+		PlayTrackOnLayer(filename, backgroundTrack, backgroundActive, LayerType::Background);
+		return;
+	}
+
+	//Determines the starting coordinate mapped to the very first frame of the video.
+	float firstPos = videoSource->positions.front();
+	//Determines the last coordinate mapped to the very last frame of the video.
+	float lastPos = videoSource->positions.back();
+	//Reads the current actual position of the hardware/system as tracked by the master application loop.
+	float currentPos = state.lastSentPosition;
+
+	//DISTANCE CHECK
+	//Check:
+	//  1.if a cover is not forced
+	//  2.if the current position is within a 1.0f threshold of the video's starting position
+	//  3.if cover transitions have been explicitly globally deactivated in configuration.
+
+	//PLAY WITHOUT COVER
+	//Evaluate if player is already close enough to the start boundary to bypass transition mechanics
+	if ((!forceCover && std::abs(currentPos - firstPos) < 1.0f) || appInterface->GetConfig().disable_cover) 
+	{
+		Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "PlayChoreography", "Current position (" + std::to_string(currentPos) + ") is close to start boundary (" + std::to_string(firstPos) + "). Playing immediately without cover.");
+		PlayTrackOnLayer(filename, backgroundTrack, backgroundActive, LayerType::Background);
+	}
+	//PLAY WITH COVER
+	//If the screen is far away from the start position ofthe choreography video, a cover transition is used to mask the movement. 
+	//The choreography video is only played once the system reaches the starting coordinate of the video.
+	else
+	{
+		std::string evtFilename;
+		float evtFadeOut = 0.0f;
+		//Checks if the video has events data associated
+		bool hasEvent = !videoSource->events.empty();
+
+		if (hasEvent) 
+		{
+			auto& evt = videoSource->events.back();
+			evtFilename = evt.filename;
+			evtFadeOut = evt.fadeOutDuration;
+		}
+
+		//Define the callback function to be executed when the cover transition completes
+		auto callback = [this, filename, idVal, loopVid, fadeIn, fadeOut, hasEvent, evtFilename, evtFadeOut]() 
+		{
+			Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "PlayChoreographyCallback", "Cover transition complete. Playing '" + filename + "' on background layer. Looping: " + (loopVid ? "true" : "false"));
+			
+			if (idVal != -1)
+				lastChoreoId = idVal;
+
+			//If the video is meant to loop, it calls play_background with zero fade times to run it normally. 
+			if (loopVid) 
+			{
+				PlayTrackOnLayer(filename, backgroundTrack, backgroundActive, LayerType::Background);
+			}
+			//If it is not a looping video, it invokes ShowBgLastFrame to freeze and park the background on its terminal frame to visually hold the destination.
+			else 
+			{
+				ShowBgLastFrame(filename, idVal);
+			}
+
+			//If the video has embedded events, they are triggered here. 
+			if (hasEvent) 
+			{
+				//Plays a sequence if the event file is a .txt
+				bool isSequence = (evtFilename.find(".txt") != std::string::npos);
+				if (isSequence) 
+				{
+					DeferredCommand cmd;
+					cmd.type = NetworkCommandType::PlaySequence;
+					cmd.filename = evtFilename;
+					cmd.fadeInDuration = fadeIn;
+					cmd.fadeOutDuration = evtFadeOut;
+					cmd.looped = false;
+					EnqueueNetworkCommand(cmd);
+				}
+				//...or plays a foreground video if the event file is a video format
+				else 
+				{
+					DeferredCommand cmd;
+					cmd.type = NetworkCommandType::PlayForeground;
+					cmd.filename = evtFilename;
+					cmd.fadeInDuration = fadeIn;
+					cmd.fadeOutDuration = evtFadeOut;
+					cmd.looped = false;
+					PlayTrackOnLayer(evtFilename, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
+				}
+			}
+
+			//This concludes the lambda definition. It sets coverStopPending = true...
+			coverStopPending = true;
+			//...and updates the target fade-out clock configuration. 
+			//This ensures that the active cover video does not dissolve prematurely before the underlying Direct3D context displays the first new background frame texture.
+			coverStopPendingFade = fadeOut;
+		};
+
+		//An edge case check: If the cover isn't explicitly forced, and the screen happens to already be standing exactly at the end (last_pos) of this video, 
+		//it completely skips loading a cover video pipeline and executes the lambda callback instantly.
+		if (!forceCover && std::abs(currentPos - lastPos) < 1.0f) 
+		{
+			Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "PlayChoreography", "Current position (" + std::to_string(currentPos) + ") is close to end boundary (" + std::to_string(lastPos) + "). Skipping cover and playing immediately.");
+			callback();
+		}
+
+		//COVER TRANSITION
+		//If the system is far away from the video boundary, it initiates a full cover transition. 
+		//It invokes transition_to, shifting the hardware motor targets toward last_pos while moving the lambda setup callback into ownership memory. 
+		//The screen will stay hidden behind the looping cover until the movement finishes and the callback is invoked.
+		else 
+		{
+			Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "PlayChoreography", "Transitioning from current position (" + std::to_string(currentPos) + ") to start boundary (" + std::to_string(firstPos) + ") with cover. Target position for choreography: " + std::to_string(lastPos));
+			TransitionTo(lastPos, std::move(callback), fadeIn, fadeOut, idVal, fgFadeOut);
+		}
+	}
+}
+
+void PlaybackManager::TransitionTo(float targetPos, std::function<void()> onComplete, float fadeIn, float fadeOut, int idVal, float fgFadeOut)
+{
+}
+
+/*
+* The primary purpose of this method is to "park" a non-looping choreography video on its final frame instantly.
+* This ensures that when an overhead cover transition layer fades out, the background is already showing a static image that perfectly matches the mechanical 
+* landing destination of the hardware.
+*/
+void PlaybackManager::ShowBgLastFrame(const std::string& filename, int idVal)
+{
+	AppState& state = appInterface->GetAppState();
+	//Verifies the filename exists in the video sources map before attempting to play it
+	if (state.sourcesMap.find(filename) == state.sourcesMap.end()) 
+		return;
+
+
+	VideoSource* videoSource = state.sourcesMap[filename];
+	//This pulls the total time duration of the video (in seconds)
+	double duration = videoSource->duration;
+
+	//Set the backgroundTrack to play the target video.
+	//This initializes the underlying video source and decodes the first frame, but it will be immediately seeked to the end in the next step.
+	PlayTrackOnLayer(filename, backgroundTrack, backgroundActive, LayerType::Background);
+
+	// Seek to exactly 1 second before the clip duration ends to freeze on the final frame
+	double seekTime = (duration > 1.0) ? (duration - 1.0) : 0.0;
+	videoSource->Seek(seekTime);
+
+	//This forces the video fade-in properties to turn off. 
+	//Because the video must be frozen and immediately opaque underneath the fading-out cover track, we prevent any transparency fade-in operations
+	videoSource->isFadingIn = false;
+	videoSource->alpha = 1.0f;
+	backgroundActive = true;
+
+	//This loops through all events of the video. 
+	//Because we are jumping straight to the end frame, we mark them all as triggered = true. This suppresses them from firing retroactively
+	for (auto& ev : videoSource->events) 
+	{
+		ev.triggered = true;
+	}
+}

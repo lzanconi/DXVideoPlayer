@@ -385,6 +385,22 @@ bool VideoSource::ComputeForcedFadeOut()
     return false;
 }
 
+void VideoSource::Seek(double timeInSeconds)
+{
+    if (!fmtCtx || streamIdx == -1) return;
+
+    // Convert seconds to the underlying stream's native timebase units
+    int64_t targetTimestamp = static_cast<int64_t>(timeInSeconds / av_q2d(fmtCtx->streams[streamIdx]->time_base));
+
+    // Issue the seek command via FFmpeg
+    if (av_seek_frame(fmtCtx, streamIdx, targetTimestamp, AVSEEK_FLAG_BACKWARD) >= 0) 
+    {
+        internalPTS = timeInSeconds;
+        lastPTS = -1.0;
+        hasMovedPastStart = true;
+    }
+}
+
 
 
 /*
