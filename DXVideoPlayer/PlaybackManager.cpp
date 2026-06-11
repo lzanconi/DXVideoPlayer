@@ -373,7 +373,7 @@ void PlaybackManager::HandlePendingSequenceCmd()
 	if (!foregroundActive && hasPendingSequenceCmd)
 	{
 		hasPendingSequenceCmd = false;
-		std::cerr << "[Main Thread] Foreground track cleared perfectly. Booting pending sequence now." << std::endl;
+		Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "HandlePendingSequenceCmd", "Booting pending sequence: " + pendingSequenceCmd.filename);
 
 		Sequence* targetSequence = nullptr;	
 		for (auto seq : appInterface->GetAppState().sequences)
@@ -389,18 +389,12 @@ void PlaybackManager::HandlePendingSequenceCmd()
 		{
 			activeSequence = targetSequence;
 
-			if (!activeSequence->items.empty())
-			{
-				activeSequence->items[0].fadeInDuration = pendingSequenceCmd.fadeInDuration;
-				activeSequence->items[activeSequence->items.size() - 1].fadeOutDuration = pendingSequenceCmd.fadeOutDuration;
-			}
-
 			activeSequence->Stop(); // Reset the sequence state to ensure it starts from the beginning
-			activeSequence->Play(pendingSequenceCmd.looped);
+			activeSequence->Play();
 		}
 		else
 		{
-			std::cerr << "[Main Thread] Failed to boot pending sequence. File not matched: " << pendingSequenceCmd.filename << std::endl;
+			Logger::LogMessage(MESSAGE_TYPE::ERRORS, "PlaybackManager", "HandlePendingSequenceCmd", "Failed to boot pending sequence. File not matched: " + pendingSequenceCmd.filename);
 		}
 	}
 }
@@ -739,7 +733,7 @@ void PlaybackManager::ProcessDeferredCommands()
 					if (activeSequence && !activeSequence->items.empty())
 					{
 						activeSequence->Stop();
-						activeSequence->Play(cmd.looped);
+						activeSequence->Play();
 					}
 				}
 				//If the foreground layer is currently active and playing a video, we cannot start the sequence immediately because sequences take control of the foreground layer to play their videos, so we need to wait until the foreground layer is clear.
