@@ -244,16 +244,22 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
 void NetworkManager::PositionSend(SOCKET socket)
 {
     Config config = appInterface->GetConfig();
+    //It computes a precise timing duration block based on the configured send period millisecond value
     auto period_duration = std::chrono::milliseconds(config.send_period_ms);
+
     char msg_buffer[64];
 
     // Local configuration mappings matching KineticVideoPlayer logic
     double scale = config.positions_scale;
     double offset = config.positions_offset;
+    //Determines how fast the system decelerates on transitions;
     float brakeAcceleration = static_cast<float>(config.cover_stop_acceleration);
+    //defines targeted relocation velocity
     float desired_average_speed = static_cast<float>(config.cover_reference_speed);
-    double positions_framerate = 60.0; // Standard fallback baseline
+    double positions_framerate = 60.0;
 
+    //Establishes a precise time for when the next network data packet should be sent.
+	//It basically controls the pacing of the position transmissions
     auto next_frame = std::chrono::steady_clock::now() + period_duration;
     double current_speed = 0.0;
 
@@ -271,41 +277,58 @@ void NetworkManager::PositionSend(SOCKET socket)
         // Handle explicit external resets if supported by your application state
         // if (appInterface->ResetPositionTriggered()) { ... last_known_position = 0.0f; }
 
+        //Checks the system clock to see how long until the scheduled send time (next_frame)...
         auto now = std::chrono::steady_clock::now();
         auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(next_frame - now);
+        //...if more than 2 milliseconds remain
         if (time_left.count() > 2)
         {
+            //Put the thread to sleep to avoid CPU waste
             std::this_thread::sleep_for(time_left - std::chrono::milliseconds(2));
         }
 
+        //Handles the remaining time (under 2ms) using a precise spin-lock.
         while (std::chrono::steady_clock::now() < next_frame)
         {
-            /* Spin lock until frame tick deadline */
         }
 
+        //Captures a high-resolution snapshot of the exact time point when this calculations cycle began...
         auto trigger_time = std::chrono::steady_clock::now();
+        //...and converts it to system nanoseconds.
         int64_t trigger_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(trigger_time.time_since_epoch()).count();
 
+        //Initializes local variables to capture the output position value and progression percentage
         float pos_value = 0.0f;
         double progress_pct = 0.0;
-
+        
+        //Extracts the positions to move the screen
         std::vector<float> positions = appInterface->GetPositions();
 
+        //Verifies the positions has been successfully parsed from CSV file
         if (!positions.empty())
         {
+            //The moment when the video frame has been fully decoded (FFmpeg)
             double last_video_time = appInterface->GetLastPTS();
+            //The moment when the video has been fully processed (e.g. copied into VideoRAM) just before being rendered (Direct3D)
             int64_t capture_time_ns = appInterface->GetBGCaptureTimeNS();
+            //Position in time during playback of the video
             double calc_time = 0.0;
 
+            //CALCULATES THE PLAYBACK TIME POINT 
+            //If the video has started playing...
             if (capture_time_ns > 0)
             {
+				//Computes the elapsed time since the last video frame was processed 
                 int64_t elapsed_ns = trigger_ns - capture_time_ns;
+				//Converts the elapsed time into seconds
                 double elapsed_sec = static_cast<double>(elapsed_ns) / 1000000000.0;
 
-                // Prevent large forward physical position jumps if updates lag behind
+                //If more than 2 seconds have passed without an update, it assumes the video has paused, stopped, or the system lagged heavily. 
+                //It resets elapsed_sec to 0 to prevent the physical position from violently jumping forward into the future.
                 if (elapsed_sec > 2.0)
                     elapsed_sec = 0.0;
 
+                //Finally computes the video playback playhead position
                 calc_time = last_video_time + elapsed_sec;
             }
             else
@@ -313,10 +336,17 @@ void NetworkManager::PositionSend(SOCKET socket)
                 calc_time = last_video_time;
             }
 
+            //Converts the config delay from milliseconds to seconds
             double delay_s = config.positions_delay_ms / 1000.0;
+			//Rewind the video playhead position by the delay amount to compensate for the system latency between when the video frame is processed and when the position data is sent 
             calc_time -= delay_s;
-            if (calc_time < 0.0) calc_time = 0.0;
 
+            //Clamp the playhead to never go negative
+            if (calc_time < 0.0) 
+                calc_time = 0.0;
+
+
+			//Get the total number of positions
             int count = static_cast<int>(positions.size());
             double exact_index = calc_time * positions_framerate;
             int base_idx = static_cast<int>(std::floor(exact_index));
