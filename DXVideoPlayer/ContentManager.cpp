@@ -26,6 +26,7 @@ void ContentManager::LoadContents()
 void ContentManager::LoadVideoContentsFromConfig()
 {
     const Config& config = appInterface->GetConfig();
+	AppState& state = appInterface->GetAppState();
     std::string choreosConfigFile = config.choreos_config_file;
     std::string errorMsg;
 
@@ -73,6 +74,8 @@ void ContentManager::LoadVideoContentsFromConfig()
         content.id = choreo.value("id", -1);
         content.name = GetFilenameFromPath(videoPath.string());
         content.filename = videoPath.string();
+
+		state.choresMap[content.id] = content.name;
 
         //LOAD CSV POSITIONS
         if (choreo.contains("file"))

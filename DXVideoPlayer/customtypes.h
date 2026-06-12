@@ -12,6 +12,7 @@ struct AppState
 {
     std::vector<VideoSource*> sources;
 	std::map<std::string, VideoSource*> sourcesMap;
+	std::map<int, std::string> choresMap;
 	std::vector<Sequence*> sequences;
     IRenderer* renderer = nullptr;
     NetworkManager* networkMgr = nullptr;
