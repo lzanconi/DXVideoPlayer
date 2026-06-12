@@ -130,7 +130,8 @@ void NetworkManager::RunClient()
         }
 
         std::cout << "[Network Client]: Client connected to Position Server." << std::endl;
-        HandlePositionSend(clientSocket);
+        //HandlePositionSend(clientSocket);
+		PositionSend(clientSocket);
 
         {
             std::lock_guard<std::mutex> lock(clientSocketMutex);
@@ -235,6 +236,251 @@ void NetworkManager::HandlePositionSend(SOCKET socket)
         }
 
 		appInterface->GetAppState().lastSentPosition = calculated_csv_pos;
+
+        next_frame += period_duration;
+    }
+}
+
+void NetworkManager::PositionSend(SOCKET socket)
+{
+    Config config = appInterface->GetConfig();
+    auto period_duration = std::chrono::milliseconds(config.send_period_ms);
+    char msg_buffer[64];
+
+    // Local configuration mappings matching KineticVideoPlayer logic
+    double scale = config.positions_scale;
+    double offset = config.positions_offset;
+    float brakeAcceleration = static_cast<float>(config.cover_stop_acceleration);
+    float desired_average_speed = static_cast<float>(config.cover_reference_speed);
+    double positions_framerate = 60.0; // Standard fallback baseline
+
+    auto next_frame = std::chrono::steady_clock::now() + period_duration;
+    double current_speed = 0.0;
+
+    // Fetch the structural state properties (Ensure these variables match your AppState/IApp signatures)
+    // If transitionMode/isCover properties reside on your video sequence wrapper, redirect these getters.
+    bool appIsPlaying = true;       // e.g., appInterface->IsPlaying()
+    bool appTransitionMode = false;  // e.g., appInterface->InTransitionMode()
+    bool appIsStopping = false;      // e.g., appInterface->IsStopping()
+    bool appIsCover = false;         // e.g., appInterface->IsCover()
+    float appTransitionPos = 0.0f;   // e.g., appInterface->GetTransitionPosition()
+    int appTransitionId = -1;        // e.g., appInterface->GetTransitionId()
+
+    while (clientRunning)
+    {
+        // Handle explicit external resets if supported by your application state
+        // if (appInterface->ResetPositionTriggered()) { ... last_known_position = 0.0f; }
+
+        auto now = std::chrono::steady_clock::now();
+        auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(next_frame - now);
+        if (time_left.count() > 2)
+        {
+            std::this_thread::sleep_for(time_left - std::chrono::milliseconds(2));
+        }
+
+        while (std::chrono::steady_clock::now() < next_frame)
+        {
+            /* Spin lock until frame tick deadline */
+        }
+
+        auto trigger_time = std::chrono::steady_clock::now();
+        int64_t trigger_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(trigger_time.time_since_epoch()).count();
+
+        float pos_value = 0.0f;
+        double progress_pct = 0.0;
+
+        std::vector<float> positions = appInterface->GetPositions();
+
+        if (!positions.empty())
+        {
+            double last_video_time = appInterface->GetLastPTS();
+            int64_t capture_time_ns = appInterface->GetBGCaptureTimeNS();
+            double calc_time = 0.0;
+
+            if (capture_time_ns > 0)
+            {
+                int64_t elapsed_ns = trigger_ns - capture_time_ns;
+                double elapsed_sec = static_cast<double>(elapsed_ns) / 1000000000.0;
+
+                // Prevent large forward physical position jumps if updates lag behind
+                if (elapsed_sec > 2.0)
+                    elapsed_sec = 0.0;
+
+                calc_time = last_video_time + elapsed_sec;
+            }
+            else
+            {
+                calc_time = last_video_time;
+            }
+
+            double delay_s = config.positions_delay_ms / 1000.0;
+            calc_time -= delay_s;
+            if (calc_time < 0.0) calc_time = 0.0;
+
+            int count = static_cast<int>(positions.size());
+            double exact_index = calc_time * positions_framerate;
+            int base_idx = static_cast<int>(std::floor(exact_index));
+            double frac = exact_index - base_idx;
+
+            int idx0 = (std::min)(base_idx, count - 1);
+            int idx1 = (std::min)(base_idx + 1, count - 1);
+
+            if (idx0 < 0) idx0 = 0;
+            if (idx1 < 0) idx1 = 0;
+
+            float val0 = positions[idx0];
+            float val1 = positions[idx1];
+
+            // Linear Interpolation between subsequent position frames
+            float calculated_csv_pos = static_cast<float>(val0 * (1.0 - frac) + val1 * frac);
+
+            if (!appTransitionMode && !appIsCover)
+            {
+                pos_value = calculated_csv_pos;
+                if (appIsPlaying)
+                {
+                    last_known_position = pos_value;
+                }
+            }
+            else
+            {
+                pos_value = last_known_position;
+            }
+
+            if (count > 0)
+            {
+                progress_pct = exact_index / static_cast<double>(count);
+                if (progress_pct > 1.0) progress_pct = 1.0;
+            }
+        }
+        else
+        {
+            pos_value = last_known_position;
+        }
+
+        // Calculate average linear velocity: v = dx / dt
+        double dt_sec = static_cast<double>(period_duration.count()) / 1000.0;
+        if (dt_sec <= 0.001) dt_sec = 0.040;
+        current_speed = static_cast<double>(last_known_position - previousSentPosition) / dt_sec;
+
+        // Ported Multi-Phase Transition Management Loop
+        if (appTransitionMode)
+        {
+            // PHASE 1: BRAKE TO STOP
+            if (appIsStopping)
+            {
+                progress_pct = 0.0;
+                double brake_dv = brakeAcceleration * dt_sec;
+                double newSpeed = current_speed;
+
+                if (current_speed > 0)
+                {
+                    newSpeed -= brake_dv;
+                    if (newSpeed < 0) newSpeed = 0;
+                }
+                else if (current_speed < 0)
+                {
+                    newSpeed += brake_dv;
+                    if (newSpeed > 0) newSpeed = 0;
+                }
+
+                pos_value = last_known_position + static_cast<float>(newSpeed * dt_sec);
+
+                if (newSpeed == 0.0)
+                {
+                    current_speed = 0.0;
+                    appIsStopping = false; // Synchronize transition state flag back to the application context
+
+                    transition_start_position = pos_value;
+                    transition_start_time = std::chrono::steady_clock::now();
+                    transition_target_position = appTransitionPos;
+
+                    float distance_to_travel = std::abs(transition_target_position - transition_start_position);
+
+                    if (desired_average_speed > 0.0f)
+                    {
+                        transition_duration_ms = (distance_to_travel / desired_average_speed) * 1000.0;
+                    }
+                    else
+                    {
+                        transition_duration_ms = 10000.0; // Fallback to 10s boundary
+                    }
+
+                    if (transition_duration_ms < 500.0)  transition_duration_ms = 500.0;
+                    if (transition_duration_ms > 20000.0) transition_duration_ms = 20000.0;
+
+                    // Ported status dispatch tracking back to external endpoints via strings/JSON if available
+                    /*
+                    if (appTransitionId >= 0) {
+                        char status_buf[256];
+                        snprintf(status_buf, sizeof(status_buf), "{\"play_video\":%d,\"loop\":false,\"duration\":%.3f}", appTransitionId, transition_duration_ms / 1000.0);
+                        appInterface->HandleNetworkCommand(std::string(status_buf));
+                    }
+                    */
+                }
+            }
+            // PHASE 2: MOVE TO DESIRED TARGET VIA SMOOTHSTEP ALGORITHM
+            else
+            {
+                auto time_passed = std::chrono::duration_cast<std::chrono::milliseconds>(now - transition_start_time);
+                double percentage = static_cast<double>(time_passed.count()) / transition_duration_ms;
+
+                if (percentage >= 1.0)
+                {
+                    percentage = 1.0;
+                    appTransitionMode = false;
+                    std::cout << "[Network Client] Move complete at position: " << transition_target_position << std::endl;
+                }
+
+                // SmoothStep generation formula helper mapping: 3t^2 - 2t^3
+                double smooth_perc = percentage * percentage * (3.0 - 2.0 * percentage);
+                pos_value = static_cast<float>(transition_start_position * (1.0 - smooth_perc) + transition_target_position * smooth_perc);
+                progress_pct = percentage;
+            }
+        }
+
+        // Direct position fallbacks for stopped background states
+        if (!appIsPlaying && !appIsCover)
+        {
+            pos_value = last_known_position;
+        }
+
+        previousSentPosition = last_known_position;
+        last_known_position = pos_value;
+
+        // Save unscaled position state
+        appInterface->GetAppState().lastSentPosition = pos_value;
+
+        // Apply dynamic scale and offset variables before shipping data down the socket pipeline
+        pos_value = pos_value * static_cast<float>(scale) + static_cast<float>(offset);
+        int len = snprintf(msg_buffer, sizeof(msg_buffer), "{\"positions\":[%.4f]}", pos_value);
+
+        // Ensure accurate localization parameters across different decimal configurations
+        for (int i = 0; i < len; i++)
+        {
+            if (msg_buffer[i] == ',') msg_buffer[i] = '.';
+        }
+
+        // Trigger transition completed events if executing a Cover configuration loop
+        if (appIsCover)
+        {
+            if (last_known_position == appTransitionPos && !sequence_triggered)
+            {
+                std::cout << "[Network Client] Cover frame transition finished! " << last_known_position << std::endl;
+                // Dispatch or invoke callbacks back to main render loop thread spaces
+                sequence_triggered = true;
+            }
+        }
+
+        // Dispatch raw sequence payload down the active TCP connection channel
+        if (len > 0)
+        {
+            if (send(socket, msg_buffer, len + 1, 0) == -1)
+            {
+                std::cout << "[Network Client] Lost synchronization stream connection link channel." << std::endl;
+                break;
+            }
+        }
 
         next_frame += period_duration;
     }

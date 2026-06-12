@@ -36,6 +36,16 @@ private:
 
 	IApp* appInterface;
 
+	float last_known_position = 0.0f;
+	float previousSentPosition = 0.0f;
+	bool stopping_phase = false;
+	bool transition_mode_active = false;
+	bool sequence_triggered = false;
+	float transition_start_position = 0.0f;
+	float transition_target_position = 0.0f;
+	double transition_duration_ms = 10000.0;
+	std::chrono::steady_clock::time_point transition_start_time;
+
 public:
 	NetworkManager(IApp* appInterface);
 	~NetworkManager();
@@ -47,6 +57,7 @@ private:
 	//Client methods
 	void RunClient();
 	void HandlePositionSend(SOCKET socket);
+	void PositionSend(SOCKET socket);
 
 	//Server methods
 	void RunServer();
