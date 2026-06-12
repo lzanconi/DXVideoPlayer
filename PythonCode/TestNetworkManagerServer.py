@@ -18,11 +18,14 @@ class JSONSenderApp:
     def __init__(self, master):
         self.master = master
         master.title("JSON Command Sender (Two-Way Windows Mode)")
-        master.geometry("600x850") # Set a comfortable initial window height
+        master.geometry("600x900") # Comfortable window height for long lists
 
         # Load file list for FG/BG commands
         self.file_list = self._load_file_list()
         self.sequence_file_list = ["sequence1.txt", "sequence2.txt"]
+        
+        # Valid choreography structural ID restrictions
+        self.choreography_ids = [0, 10, 11, 12, 20, 21, 22, 30, 31, 40, 41, 42, 50, 51, 60]
 
         # Connection State
         self.sock = None
@@ -63,18 +66,19 @@ class JSONSenderApp:
         self.fade_out_seq_var = tk.StringVar(value="1.0")
         self.loop_seq_var = tk.BooleanVar(value=False)
 
+        # --- Play Choreography Specific Trackers ---
+        self.choreo_id_var = tk.IntVar(value=self.choreography_ids[0])
+        self.fade_in_choreo_var = tk.StringVar(value="1.0")
+        self.fade_out_choreo_var = tk.StringVar(value="1.0")
+        self.fg_fade_out_choreo_var = tk.StringVar(value="2.0")  # Now a float representation string
+        self.loop_choreo_var = tk.BooleanVar(value=False)
+        self.force_cover_choreo_var = tk.BooleanVar(value=False)
+
         # Cover Command Variables
         self.filename_cover_var = tk.StringVar(value=default_filename)
         self.fade_in_cover_var = tk.StringVar(value="0.0")
         self.fade_out_cover_var = tk.StringVar(value="0.0")
         self.loop_cover_var = tk.BooleanVar(value=False)
-
-        # --- Transition To (New Structure) Variables ---
-        self.filename_trans_new_var = tk.StringVar(value=default_filename)
-        self.foreground_trans_var = tk.StringVar(value=default_filename)
-        self.background_trans_var = tk.StringVar(value=default_filename)
-        self.fade_in_trans_new_var = tk.StringVar(value="0.0")
-        self.loop_trans_new_var = tk.BooleanVar(value=False)
 
         # --- Checkbox States for Optional Elements ---
         self.include_fg_var = tk.BooleanVar(value=True)
@@ -201,43 +205,44 @@ class JSONSenderApp:
         tk.Button(cover_frame, text="Send Cover Command", command=self._send_play_cover, width=18).grid(row=2, column=1, columnspan=3, pady=10)
         tk.Button(cover_frame, text="Hide Cover", command=self._send_hide_cover, width=18, bg="#FFCCCC").grid(row=3, column=1, columnspan=3, pady=5)
 
-        # Transition To
-        trans_new_frame = tk.LabelFrame(commands_frame, text="Transition To", padx=5, pady=5)
-        trans_new_frame.pack(padx=10, pady=5, fill="x")
-        
-        # Row 0: Filename
-        tk.Label(trans_new_frame, text="Filename:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self._create_filename_dropdown(trans_new_frame, 0, 1, self.filename_trans_new_var, self.file_list, columnspan=2)
-        
-        # Row 1: Foreground List + Activation Checkbox
-        tk.Label(trans_new_frame, text="Foreground:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
-        self._create_filename_dropdown(trans_new_frame, 1, 1, self.foreground_trans_var, self.file_list, columnspan=2)
-        tk.Checkbutton(trans_new_frame, text="Include", variable=self.include_fg_var).grid(row=1, column=3, padx=5, pady=5, sticky="w")
-
-        # Row 2: Background List + Activation Checkbox
-        tk.Label(trans_new_frame, text="Background:").grid(row=2, column=0, padx=5, pady=5, sticky="w")
-        self._create_filename_dropdown(trans_new_frame, 2, 1, self.background_trans_var, self.file_list, columnspan=2)
-        tk.Checkbutton(trans_new_frame, text="Include", variable=self.include_bg_var).grid(row=2, column=3, padx=5, pady=5, sticky="w")
-
-        # Row 3: Durations
-        tk.Label(trans_new_frame, text="Fade In (s):").grid(row=3, column=0, padx=5, pady=5, sticky="w")
-        tk.Entry(trans_new_frame, textvariable=self.fade_in_trans_new_var, width=10).grid(row=3, column=1, padx=5, pady=5, sticky="w")
-        tk.Checkbutton(trans_new_frame, text="Loop", variable=self.loop_trans_new_var).grid(row=3, column=2, padx=10, pady=5, sticky="w")
-        
-        # Row 4: Action Button
-        tk.Button(trans_new_frame, text="Send Transition Command", command=self._send_transition_to_new, width=22).grid(row=4, column=0, columnspan=4, pady=10)
 
         # Play Sequence
         seq_frame = tk.LabelFrame(commands_frame, text="Play Sequence", padx=5, pady=5)
         seq_frame.pack(padx=10, pady=5, fill="x")
         tk.Label(seq_frame, text="Filename:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self._create_filename_dropdown(seq_frame, 0, 1, self.filename_seq_var, self.file_list)
+        self._create_filename_dropdown(seq_frame, 0, 1, self.filename_seq_var, self.sequence_file_list)
         tk.Label(seq_frame, text="Fade In (s):").grid(row=1, column=0, padx=5, pady=5, sticky="w")
         tk.Entry(seq_frame, textvariable=self.fade_in_seq_var, width=10).grid(row=1, column=1, padx=5, pady=5, sticky="w")
         tk.Label(seq_frame, text="Fade Out (s):").grid(row=1, column=2, padx=5, pady=5, sticky="w")
         tk.Entry(seq_frame, textvariable=self.fade_out_seq_var, width=10).grid(row=1, column=3, padx=5, pady=5, sticky="w")
         tk.Checkbutton(seq_frame, text="Loop", variable=self.loop_seq_var).grid(row=2, column=0, padx=10, pady=5, sticky="w")
         tk.Button(seq_frame, text="Send Sequence", command=self._send_play_sequence, width=22).grid(row=2, column=1, columnspan=3, pady=10)
+
+        # --- Play Choreography Section ---
+        choreo_frame = tk.LabelFrame(commands_frame, text="Play Choreography", padx=5, pady=5)
+        choreo_frame.pack(padx=10, pady=5, fill="x")
+        
+        # Dropdown configuration for the fixed list of Choreography IDs
+        tk.Label(choreo_frame, text="Choreo ID:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        choreo_id_menu = tk.OptionMenu(choreo_frame, self.choreo_id_var, *self.choreography_ids)
+        choreo_id_menu.config(width=10)
+        choreo_id_menu.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+
+        # Duration Inputs
+        tk.Label(choreo_frame, text="Fade In (s):").grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        tk.Entry(choreo_frame, textvariable=self.fade_in_choreo_var, width=10).grid(row=1, column=1, padx=5, pady=5, sticky="w")
+        tk.Label(choreo_frame, text="Fade Out (s):").grid(row=1, column=2, padx=5, pady=5, sticky="w")
+        tk.Entry(choreo_frame, textvariable=self.fade_out_choreo_var, width=10).grid(row=1, column=3, padx=5, pady=5, sticky="w")
+        
+        # FG Fade Out (Changed to float input box instead of checkbox)
+        tk.Label(choreo_frame, text="FG Fade Out (s):").grid(row=2, column=0, padx=5, pady=5, sticky="w")
+        tk.Entry(choreo_frame, textvariable=self.fg_fade_out_choreo_var, width=10).grid(row=2, column=1, padx=5, pady=5, sticky="w")
+        
+        # Configuration Booleans
+        tk.Checkbutton(choreo_frame, text="Looped", variable=self.loop_choreo_var).grid(row=2, column=2, padx=5, pady=5, sticky="w")
+        tk.Checkbutton(choreo_frame, text="Force Cover On Exit", variable=self.force_cover_choreo_var).grid(row=2, column=3, padx=5, pady=5, sticky="w")
+        
+        tk.Button(choreo_frame, text="Send Choreography", command=self._send_play_choreography, width=22).grid(row=3, column=0, columnspan=4, pady=10)
 
         # Terminal display box for incoming server messages
         terminal_frame = tk.LabelFrame(self.master, text="Server Responses (Incoming Data)", padx=10, pady=5)
@@ -419,26 +424,6 @@ class JSONSenderApp:
         message_dict = {"hide_cover": ""}
         self._send_json_via_socket(message_dict)
 
-    def _send_transition_to_new(self):
-        print("DEBUG: Preparing to send Transition To command...")
-        filename = self.filename_trans_new_var.get()
-        
-        # Read dropdowns or assign empty strings depending on the checkboxes
-        foreground = self.foreground_trans_var.get() if self.include_fg_var.get() else ""
-        background = self.background_trans_var.get() if self.include_bg_var.get() else ""
-        
-        fade_in = self._validate_float_input(self.fade_in_trans_new_var, "Transition Fade In")
-        if fade_in is None: return
-
-        message_dict = {
-            "transition_to": filename,
-            "foreground": foreground,
-            "background": background,
-            "fade_in_seconds": fade_in,
-            "loop": self.loop_trans_new_var.get()
-        }
-        self._send_json_via_socket(message_dict)
-
     def _send_play_sequence(self):
         filename = self.filename_seq_var.get()
         fade_in = self._validate_float_input(self.fade_in_seq_var, "Sequence Fade In")
@@ -447,6 +432,24 @@ class JSONSenderApp:
 
         message_dict = {
             "play_sequence": filename, "fade_in_seconds": fade_in, "fade_out_seconds": fade_out, "loop": self.loop_seq_var.get() 
+        }
+        self._send_json_via_socket(message_dict)
+
+    def _send_play_choreography(self):
+        fade_in = self._validate_float_input(self.fade_in_choreo_var, "Choreography Fade In")
+        fade_out = self._validate_float_input(self.fade_out_choreo_var, "Choreography Fade Out")
+        fg_fade_out = self._validate_float_input(self.fg_fade_out_choreo_var, "Choreography Foreground Fade Out")
+        
+        if fade_in is None or fade_out is None or fg_fade_out is None: return
+
+        # Form the dictionary exactly with expected key mapping structures and data types
+        message_dict = {
+            "play_choreography": int(self.choreo_id_var.get()),
+            "fade_in_seconds": fade_in,
+            "fade_out_seconds": fade_out,
+            "fg_fade_out_seconds": fg_fade_out,
+            "loop": bool(self.loop_choreo_var.get()),
+            "force_cover_on_exit": bool(self.force_cover_choreo_var.get())
         }
         self._send_json_via_socket(message_dict)
 
