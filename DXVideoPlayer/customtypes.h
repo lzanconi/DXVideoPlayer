@@ -93,7 +93,8 @@ enum class NetworkCommandType
     PlaySequence,
     PlayCover,
     HideCover,
-    TransitionTo
+    TransitionTo,
+	PlayChoreography
 };
 
 //Enumeration for different video layer types, which can be used to determine which track (foreground or cover) a command should target
@@ -108,12 +109,15 @@ enum class LayerType
 struct DeferredCommand
 {
     NetworkCommandType type;
+	int choreoID = -1;
     std::string filename;
     std::string foreground;
     std::string background;
     float fadeInDuration = 0.0f;
     float fadeOutDuration = 0.0f;
+	float fgFadeOutDuration = 0.0f;
     bool looped = false;
+	bool forceCoverOnExit = false;
 };
 
 //Struct to represent an item in a video sequence, containing the filename and fade durations

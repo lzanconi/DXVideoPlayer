@@ -35,6 +35,11 @@ private:
 	bool hasPendingCoverCmd = false;
 	DeferredCommand pendingCoverCmd;
 
+	bool hasPendingChoreographyCmd = false;
+	DeferredCommand pendingChoreographyCmd;
+
+	int lastChoreoID = -1;
+
 public:
 	std::unique_ptr<VideoTrack> backgroundTrack;
 	std::unique_ptr<VideoTrack> foregroundTrack;
@@ -76,5 +81,7 @@ public:
 
 	void EnqueueNetworkCommand(const DeferredCommand& cmd);
 	void ProcessDeferredCommands();
+
+	void PlayChoreography(const std::string& filename, float fgFadeOut, float fadeIn, float fadeOut, int idVal, bool loopVid, bool forceCoverOnExit = false);
 };
 

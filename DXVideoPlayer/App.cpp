@@ -319,6 +319,34 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
             responseMessage = "{\"status\":\"acknowledged\",\"command\":\"hide_cover\"}";
         }
 
+		//PLAY CHOREOGRAPHY COMMAND:
+        if (j.contains("play_choreography"))
+        {
+            cmd.type = NetworkCommandType::PlayChoreography;
+			cmd.choreoID = j["play_choreography"].get<int>();
+
+            if (j.contains("fade_in_seconds")) {
+                cmd.fadeInDuration = j["fade_in_seconds"].get<float>();
+			}
+            if (j.contains("fade_out_seconds")) {
+                cmd.fadeOutDuration = j["fade_out_seconds"].get<float>();
+            }
+            if (j.contains("fg_fade_out_seconds")) {
+                cmd.fgFadeOutDuration = j["fg_fade_out_seconds"].get<float>();
+			}
+            if (j.contains("loop")) {
+                cmd.looped = j["loop"].get<bool>();
+            }
+            if (j.contains("force_cover_on_exit")) {
+                cmd.forceCoverOnExit = j["force_cover_on_exit"].get<bool>();
+			}
+
+            playbackMgr->EnqueueNetworkCommand(cmd);
+
+            commandProcessed = true;
+            responseMessage = "{\"status\":\"acknowledged\",\"command\":\"play_choreography\"}";
+        }
+
         //If the command was successfully parsed and recognized, send an acknowledgment response back to the client
         if (clientSocket > 0 && commandProcessed)
         {

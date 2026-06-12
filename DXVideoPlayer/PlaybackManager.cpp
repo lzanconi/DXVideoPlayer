@@ -1,5 +1,6 @@
 #include "PlaybackManager.h"
 #include <iostream>
+#include <format>
 #include "App.h"
 #include "utils.h"
 #include "Sequence.h"
@@ -782,6 +783,53 @@ void PlaybackManager::ProcessDeferredCommands()
 				}
 				break;
 			}
+
+			case NetworkCommandType::PlayChoreography:
+			{
+				Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "ProcessDeferredCommands", "Processing deferred 'play_choreography' with ID: " + std::to_string(cmd.choreoID));	
+				int foundChoreo = state.choresMap.count(cmd.choreoID);
+
+				if (foundChoreo > 0)
+				{
+					if (foregroundActive)
+					{
+						hasPendingChoreographyCmd = true;
+						pendingChoreographyCmd = cmd;
+
+						if (activeSequence && activeSequence->isActive)
+						{
+							activeSequence->Stop();
+						}
+
+						if (foregroundTrack && foregroundTrack->IsActive())
+						{
+							foregroundTrack->StartForcedFadeOut(cmd.fgFadeOutDuration);
+						}
+					}
+					else
+					{
+						hasPendingChoreographyCmd = false;
+						std::string filename = state.choresMap[cmd.choreoID];
+						PlayChoreography(filename, cmd.fgFadeOutDuration, cmd.fadeInDuration, cmd.fadeOutDuration, cmd.choreoID, cmd.forceCoverOnExit);
+					}
+				}
+				
+
+				break;
+			}
 		}
 	}
+}
+
+void PlaybackManager::PlayChoreography(const std::string& filename, float fgFadeOut, float fadeIn, float fadeOut, int idVal, bool loopVid, bool forceCoverOnExit)
+{
+	Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "PlayChoreography", "Playing choreography file: " + filename + " with ID: " + std::to_string(idVal) + 
+		" fgFadeOut: " + std::to_string(fgFadeOut) + " fadeIn: " + std::to_string(fadeIn) + " fadeOut: " + std::to_string(fadeOut) + " loopVid: " + (loopVid? + "true" : + "false") + 
+		" forceCoverOnExit: " + (forceCoverOnExit ? +"true" : +"false"));
+
+	if (idVal != -1)
+	{
+		lastChoreoID = idVal;
+	}
+
 }
