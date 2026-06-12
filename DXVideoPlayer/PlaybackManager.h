@@ -4,7 +4,6 @@
 #include <queue>
 #include <mutex>
 #include <string>
-#include <functional>
 #include "customtypes.h"
 #include "VideoTrack.h"
 
@@ -35,13 +34,6 @@ private:
 
 	bool hasPendingCoverCmd = false;
 	DeferredCommand pendingCoverCmd;
-
-	//Playchoreography state variables
-	int lastChoreoId = -1;
-	bool activeForceCoverOnExit = false;
-	bool fgActiveForceCoverOnExit = false;
-	bool coverStopPending = false;
-	float coverStopPendingFade = 0.0f;
 
 public:
 	std::unique_ptr<VideoTrack> backgroundTrack;
@@ -84,9 +76,5 @@ public:
 
 	void EnqueueNetworkCommand(const DeferredCommand& cmd);
 	void ProcessDeferredCommands();
-
-	void PlayChoreography(const std::string& filename, float fgFadeOut, float fadeIn, float fadeOut, int idVal, bool loopVid, bool forceCoverOnExit = false);
-	void TransitionTo(float targetPos, std::function<void()> onComplete, float fadeIn, float fadeOut, int idVal, float fgFadeOut);
-	void ShowBgLastFrame(const std::string& filename, int idVal);
 };
 

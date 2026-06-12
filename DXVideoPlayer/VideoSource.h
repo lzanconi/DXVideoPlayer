@@ -2,7 +2,6 @@
 #include <atomic>
 #include <string>
 #include <vector>
-#include <functional>
 
 // Forward declarations for FFmpeg structs to keep the header clean
 struct AVFormatContext;
@@ -46,16 +45,6 @@ public:
     std::vector<float> positions;
     std::string filename;
 	std::vector<BackgroundEvent> events;
-
-	//Play choreography transition related properties
-    bool transitionMode = false;
-    bool stopping = false;
-    bool isCover = false;
-    float transitionPosition = 0.0f;
-    int transitionId = -1;
-    std::function<void()> onTransitionComplete = nullptr;
-    bool sequenceTriggered = false;
-
 public:
 	VideoSource() = default;
     ~VideoSource();
@@ -70,7 +59,6 @@ public:
 
     bool ComputeNaturalFadeOut();
 	bool ComputeForcedFadeOut();
-	void Seek(double timeInSeconds);
     
 
 private:
