@@ -940,8 +940,101 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 	}
 }
 
+/*
+* The primary objective of this method is to initiate a spatial transition by firing an cover video. 
+* While the cover loops seamlessly, the screen moves to its target position. 
+* Once the target position is reached, a callback configuration maps the new background video to play.
+* 
+* -targetPos -> the destination to reach
+* -onComplete() -> the callback to execute once the destination is reached.
+* -fadeIn/fadeOut -> fade in and fade out durations for the cover video
+* -idVal -> ID val of the choreography video
+* -fgFadeOut -> fade out duration to clear the currently foreground video
+*/
 void PlaybackManager::TransitionTo(float targetPos, std::function<void()> onComplete, float fadeIn, float fadeOut, int idVal, float fgFadeOut)
 {
+	Config& config = appInterface->GetConfig();
+	AppState& state = appInterface->GetAppState();
+	std::string coverFilename = config.cover_filename;
+
+	//Verifies the cover video filename exists in the video sources map before attempting to play it.
+	if (coverFilename.empty() || state.sourcesMap.find(coverFilename) == state.sourcesMap.end()) 
+	{
+		Logger::LogMessage(MESSAGE_TYPE::ERRORS, "PlaybackManager", "TransitionTo", "Cover video '" + coverFilename + "' not found in sources. Transition aborted.");
+		return;
+	}
+
+	//Extracts a reference to the metadata of the target video. This includes position data, event data, and other relevant information.
+	VideoSource* coverSource = state.sourcesMap[coverFilename];
+
+	//COVER VIDEO IS ALREADY PLAYING, JUST UPDATE THE TRANSITION PROPERTIES
+	/*
+	* If a transition request arrives while a cover transition is already rendering (coverActive == true), 
+	* we do not reconstruct the video decoder pipeline from scratch. 
+	* Instead we updates the data attached to the cover video that is playing
+	*/
+	if(coverSource->transitionMode && coverSource->isCover && coverActive) 
+	{
+		//Updates the target position to the new one passed as an argument
+		coverSource->transitionPosition = targetPos;
+		coverSource->transitionId = idVal;
+		//Trigger a brake phase in NetworkManager
+		coverSource->stopping = true;
+		//Updates the callback to be executed once the transition completes to the new one passed as an argument
+		coverSource->onTransitionComplete = std::move(onComplete);
+
+		//If a foreground video is active and fade-out duration is valid
+		if (foregroundActive && fgFadeOut > -99.0f) 
+		{
+			//Force fade-out the foreground video
+			foregroundTrack->StartForcedFadeOut(fgFadeOut);
+		}
+		return;
+	}
+
+	//COVER VIDEO IS NOT PLAYING, BOOT A NEW TRANSITION
+	//Activates transition mode
+	coverSource->transitionMode = true;
+	//Sets the stopping flag to true to trigger the braking phase in NetworkManager. 
+	coverSource->stopping = true;
+	//Flags this asset as a cover video
+	coverSource->isCover = true;
+	//Set the target position
+	coverSource->transitionPosition = targetPos;
+	coverSource->transitionId = idVal;
+	//Sets the callback to be executed once the transition completes
+	coverSource->onTransitionComplete = std::move(onComplete);
+	coverSource->sequenceTriggered = false;
+
+	//In case a cover video has attached -events, ensures they are all set to triggered=true so they don't accidentally fire during the transition
+	for (auto& ev : coverSource->events) 
+	{
+		ev.triggered = true;
+	}
+
+	//If a foreground video is active and fade-out duration is valid
+	if (foregroundActive && fgFadeOut > -99.0f) 
+	{
+		//Force fade-out the foreground video
+		foregroundTrack->StartForcedFadeOut(fgFadeOut);
+	}
+
+	//Determines the effective fade-in and fade-out durations for the cover video. 
+	//If the provided durations are 0, it falls back to the default values specified in the configuration.
+	float effFadeIn = (fadeIn == 0.0f) ? config.cover_fade_in_time : fadeIn;
+	float effFadeOut = (fadeOut == 0.0f) ? config.cover_fade_out_time : fadeOut;
+
+	//Packages standard execution parameters into deferred command. 
+	//It declares the command type explicitly as PlayCover and explicitly flags looped = true to guarantee the masking buffer repeats seamlessly.
+	DeferredCommand cmd;
+	cmd.type = NetworkCommandType::PlayCover;
+	cmd.filename = coverFilename;
+	cmd.fadeInDuration = effFadeIn;
+	cmd.fadeOutDuration = effFadeOut;
+	cmd.looped = true;
+
+	//Play the cover video on the cover layer
+	PlayTrackOnLayer(GetFilenameFromPath(coverFilename), coverTrack, coverActive, LayerType::Cover, &cmd);
 }
 
 /*
