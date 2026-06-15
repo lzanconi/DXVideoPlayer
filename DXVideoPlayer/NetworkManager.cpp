@@ -167,12 +167,13 @@ void NetworkManager::PositionSend(SOCKET socket)
 
     while (clientRunning)
     {
-        bool appIsPlaying = appInterface->IsBackgroundPlaying();
+        /*bool appIsPlaying = appInterface->IsBackgroundPlaying();
         bool appTransitionMode = appInterface->InTransitionMode();
         bool appIsStopping = appInterface->IsStoppingPhase();
         bool appIsCover = appInterface->IsCoverActive();
         float appTransitionPos = appInterface->GetTransitionPosition();
-        int appTransitionId = appInterface->GetTransitionId();
+        int appTransitionId = appInterface->GetTransitionId();*/
+
 
         auto now = std::chrono::steady_clock::now();
         auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(next_frame - now);
@@ -237,10 +238,10 @@ void NetworkManager::PositionSend(SOCKET socket)
             // Linear Interpolation between subsequent position frames
             float calculated_csv_pos = static_cast<float>(val0 * (1.0 - frac) + val1 * frac);
 
-            if (!appTransitionMode && !appIsCover)
+            if (!this->transition_mode_active && !appInterface->IsCoverActive())
             {
                 pos_value = calculated_csv_pos;
-                if (appIsPlaying)
+                if (appInterface->IsBackgroundPlaying())
                 {
                     previousSentPosition = last_known_position;
                     last_known_position = pos_value;
@@ -268,10 +269,10 @@ void NetworkManager::PositionSend(SOCKET socket)
         current_speed = static_cast<double>(last_known_position - previousSentPosition) / dt_sec;
 
         // Ported Multi-Phase Transition Management Loop
-        if (appTransitionMode)
+        if (this->transition_mode_active)
         {
             // PHASE 1: BRAKE TO STOP
-            if (appIsStopping)
+            if (this->stopping_phase)
             {
                 progress_pct = 0.0;
                 double brake_dv = brakeAcceleration * dt_sec;
@@ -294,12 +295,11 @@ void NetworkManager::PositionSend(SOCKET socket)
                 if (newSpeed == 0.0)
                 {
                     current_speed = 0.0;
-                    appIsStopping = false;
                     this->stopping_phase = false;
 
                     transition_start_position = pos_value;
                     transition_start_time = std::chrono::steady_clock::now();
-                    transition_target_position = appTransitionPos;
+                    transition_target_position = appInterface->GetTransitionPosition();
 
                     float distance_to_travel = std::abs(transition_target_position - transition_start_position);
 
@@ -334,15 +334,14 @@ void NetworkManager::PositionSend(SOCKET socket)
                 if (percentage >= 1.0)
                 {
                     percentage = 1.0;
-                    appTransitionMode = false;
 					this->transition_mode_active = false;
                     std::cout << "[Network Client] Move complete at position: " << transition_target_position << std::endl;
 
-                    appTransitionId = appInterface->GetTransitionId();
-                    if (appTransitionId >= 0)
+                    int transitionId = appInterface->GetTransitionId();
+                    if (transitionId >= 0)
                     {
                         char status_buf[256];
-                        snprintf(status_buf, sizeof(status_buf), "{\"play_choreography\":%d,\"loop\":false,\"fade_in_seconds\":1.0}", appTransitionId);
+                        snprintf(status_buf, sizeof(status_buf), "{\"play_choreography\":%d,\"loop\":false,\"fade_in_seconds\":1.0}", transitionId);
                         appInterface->HandleNetworkCommand(std::string(status_buf));
                     }
                 }
@@ -354,13 +353,13 @@ void NetworkManager::PositionSend(SOCKET socket)
         }
 
         // Direct position fallbacks for stopped background states
-        if (!appIsPlaying && !appIsCover)
+        if (!appInterface->IsBackgroundPlaying() && !appInterface->IsCoverActive())
         {
             pos_value = last_known_position;
         }
 
         // FIX 2: Only cycle historical tracking values sequentially while actively running a transition phase
-        if (appTransitionMode || appIsCover)
+        if (this->transition_mode_active || appInterface->IsCoverActive())
         {
             previousSentPosition = last_known_position;
         }
@@ -380,9 +379,9 @@ void NetworkManager::PositionSend(SOCKET socket)
         }
 
         // Trigger transition completed events if executing a Cover configuration loop
-        if (appIsCover)
+        if (appInterface->IsCoverActive())
         {
-            if (last_known_position == appTransitionPos && !sequence_triggered)
+            if (last_known_position == appInterface->GetTransitionPosition() && !sequence_triggered)
             {
                 std::cout << "[Network Client] Cover frame transition finished! " << last_known_position << std::endl;
                 sequence_triggered = true;
