@@ -657,6 +657,7 @@ void PlaybackManager::ProcessDeferredCommands()
 					}
 					else
 					{
+						hasPendingBackgroundCmd = false;
 						PlayTrackOnLayer(cmd.filename, backgroundTrack, backgroundActive, LayerType::Background, &cmd);
 					}
 				}
