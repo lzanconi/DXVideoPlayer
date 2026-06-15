@@ -25,7 +25,7 @@ class JSONSenderApp:
         self.sequence_file_list = ["sequence1.txt", "sequence2.txt"]
         
         # Valid choreography structural ID restrictions
-        self.choreography_ids = [0, 10, 11, 12, 20, 21, 22, 30, 31, 40, 41, 42, 50, 51, 60]
+        self.choreography_ids = [0, 10, 11, 12, 20, 21, 22, 30, 31, 40, 41, 42, 50, 51, 60, 61]
 
         # Connection State
         self.sock = None

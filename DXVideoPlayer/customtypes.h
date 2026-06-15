@@ -119,6 +119,8 @@ struct DeferredCommand
 	float fgFadeOutDuration = 0.0f;
     bool looped = false;
 	bool forceCoverOnExit = false;
+
+	float targetPosition = 0.0f;    
 };
 
 //Struct to represent an item in a video sequence, containing the filename and fade durations

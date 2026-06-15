@@ -55,6 +55,7 @@ public:
 	bool IsTransitionActive() const { return transition_mode_active; }
 	bool IsStoppingPhase() const { return stopping_phase; }
 	float GetTransitionTargetPosition() const { return transition_target_position; }
+	void SetupTransition(float targetPos, int id);
 
 private:
 	//Client methods

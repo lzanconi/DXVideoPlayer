@@ -79,6 +79,16 @@ void NetworkManager::Stop()
     std::cout << "NetworkManager: All background threads stopped cleanly." << std::endl;
 }
 
+void NetworkManager::SetupTransition(float targetPos, int id)
+{
+    std::lock_guard<std::mutex> lock(clientSocketMutex);
+    this->transition_target_position = targetPos;
+    this->transition_mode_active = true;
+    this->stopping_phase = true;
+    this->sequence_triggered = false;
+    this->transition_start_time = std::chrono::steady_clock::now();
+}
+
 //##########################################################################################
 //##    CLIENT IMPLEMENTATION (SEND POSITIONS)
 //##########################################################################################
@@ -264,17 +274,15 @@ void NetworkManager::PositionSend(SOCKET socket)
     auto next_frame = std::chrono::steady_clock::now() + period_duration;
     double current_speed = 0.0;
 
-    // Fetch the structural state properties (Ensure these variables match your AppState/IApp signatures)
-    // If transitionMode/isCover properties reside on your video sequence wrapper, redirect these getters.
-    bool appIsPlaying = appInterface->IsBackgroundPlaying();       // e.g., appInterface->IsPlaying()
-    bool appTransitionMode = appInterface->InTransitionMode();  // e.g., appInterface->InTransitionMode()
-    bool appIsStopping = appInterface->IsStoppingPhase();      // e.g., appInterface->IsStopping()
-    bool appIsCover = appInterface->IsCoverActive();         // e.g., appInterface->IsCover()
-    float appTransitionPos = appInterface->GetTransitionPosition();   // e.g., appInterface->GetTransitionPosition()
-    int appTransitionId = appInterface->GetTransitionId();        // e.g., appInterface->GetTransitionId()
-
     while (clientRunning)
     {
+        bool appIsPlaying = appInterface->IsBackgroundPlaying();
+        bool appTransitionMode = appInterface->InTransitionMode();
+        bool appIsStopping = appInterface->IsStoppingPhase();
+        bool appIsCover = appInterface->IsCoverActive();
+        float appTransitionPos = appInterface->GetTransitionPosition();
+        int appTransitionId = appInterface->GetTransitionId();
+
         // Handle explicit external resets if supported by your application state
         // if (appInterface->ResetPositionTriggered()) { ... last_known_position = 0.0f; }
 

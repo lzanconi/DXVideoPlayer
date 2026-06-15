@@ -6,6 +6,7 @@
 #include <string>
 #include "customtypes.h"
 #include "VideoTrack.h"
+#include <functional>
 
 class IApp;
 class IRenderer;
@@ -39,6 +40,11 @@ private:
 	DeferredCommand pendingChoreographyCmd;
 
 	int lastChoreoID = -1;
+
+	bool forceCoverOnExitActive = false;
+	bool coverStopPending = false;
+	float coverStopPendingFade = 0.0f;
+	std::function<void()> onTransitionCompleteCallback = nullptr;
 
 public:
 	std::unique_ptr<VideoTrack> backgroundTrack;
@@ -83,5 +89,9 @@ public:
 	void ProcessDeferredCommands();
 
 	void PlayChoreography(const std::string& filename, float fgFadeOut, float fadeIn, float fadeOut, int idVal, bool loopVid, bool forceCoverOnExit = false);
+	void TransitionTo(float targetPos, std::function<void()> onComplete, float fadeIn, float fadeOut, int idVal, float fgFadeOut);
+
+	void ShowBgLastFrame(const std::string& filename, int idVal);
+	void HandleCoverFadeDeferral();
 };
 
