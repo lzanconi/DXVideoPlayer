@@ -993,30 +993,20 @@ void PlaybackManager::TransitionTo(float targetPos, std::function<void()> onComp
 
 void PlaybackManager::ShowBgLastFrame(const std::string& filename, int idVal)
 {
-	// 1. Initialize the background layer track using the standard pipeline route
+	// 1. Initialize the background layer track normally so time moves forward frame-by-frame
 	PlayTrackOnLayer(filename, backgroundTrack, backgroundActive, LayerType::Background);
 
 	if (backgroundTrack)
 	{
-		// 2. Prevent the video clock from continuing to play forward automatically
-		backgroundTrack->SetActive(false); // Keeps it pinned to the frame we map now
+		// Force it to remain globally active so Direct3D continues rendering the frame textures
+		backgroundTrack->SetActive(true);
+		backgroundTrack->state = VideoTrackState::Playing;
 
-		// 3. Make sure the background source alpha rendering values are set cleanly
 		VideoSource* bgSource = backgroundTrack->GetSource();
 		if (bgSource)
 		{
-			bgSource->alpha = 1.0f; // Force full opacity behind the fading cover layer
-
-			// 4. Force the media reader context to process up to the final decoded frame texture
-			ID3D11DeviceContext* ctx = renderer->GetContext();
-
-			// We manually loop frame queries until the asset buffer is exhausted.
-			// This forces the Media Foundation decoder directly to the terminal frame segment
-			// without adding new seek methods to your VideoTrack class.
-			while (bgSource->GetNextFrame(ctx))
-			{
-				// Intentionally loops until the end-of-stream boundary is loaded into the texture
-			}
+			bgSource->alpha = 1.0f;    // Keep it fully opaque underneath the fading cover layer
+			bgSource->looped = false;  // Ensure it reaches its actual ending naturally without restarting
 		}
 	}
 }
