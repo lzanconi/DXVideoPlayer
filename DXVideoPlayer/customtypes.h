@@ -17,6 +17,7 @@ struct AppState
     IRenderer* renderer = nullptr;
     NetworkManager* networkMgr = nullptr;
 	float lastSentPosition = 0.0f;
+	int transitionId = -1;
  };
 
 struct TargetPosition {

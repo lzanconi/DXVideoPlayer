@@ -59,6 +59,12 @@ public:
 	AppState& GetAppState() override;
 	Config& GetConfig() override;
 	PlaybackManager* GetPlaybackManager() override;
+	bool IsBackgroundPlaying() override;
+	bool InTransitionMode() override;
+	bool IsStoppingPhase() override;
+	bool IsCoverActive() override;
+	float GetTransitionPosition() override;
+	int GetTransitionId() override;
 	void SetClientSocket(int socket) override;
 	void HandleNetworkCommand(const std::string& jsonStr) override;
 

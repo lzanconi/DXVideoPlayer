@@ -18,6 +18,12 @@ public:
 	virtual AppState& GetAppState() = 0;
 	virtual Config& GetConfig() = 0;
 	virtual PlaybackManager* GetPlaybackManager() = 0;
+	virtual bool IsBackgroundPlaying() = 0; 
+	virtual bool InTransitionMode() = 0;
+	virtual bool IsStoppingPhase() = 0;
+	virtual bool IsCoverActive() = 0;
+	virtual float GetTransitionPosition() = 0;
+	virtual int GetTransitionId() = 0;	
     virtual void SetClientSocket(int socket) = 0;
     virtual void HandleNetworkCommand(const std::string& jsonStr) = 0;
 };

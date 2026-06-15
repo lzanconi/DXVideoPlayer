@@ -266,12 +266,12 @@ void NetworkManager::PositionSend(SOCKET socket)
 
     // Fetch the structural state properties (Ensure these variables match your AppState/IApp signatures)
     // If transitionMode/isCover properties reside on your video sequence wrapper, redirect these getters.
-    bool appIsPlaying = true;       // e.g., appInterface->IsPlaying()
-    bool appTransitionMode = false;  // e.g., appInterface->InTransitionMode()
-    bool appIsStopping = false;      // e.g., appInterface->IsStopping()
-    bool appIsCover = false;         // e.g., appInterface->IsCover()
-    float appTransitionPos = 0.0f;   // e.g., appInterface->GetTransitionPosition()
-    int appTransitionId = -1;        // e.g., appInterface->GetTransitionId()
+    bool appIsPlaying = appInterface->IsBackgroundPlaying();       // e.g., appInterface->IsPlaying()
+    bool appTransitionMode = appInterface->InTransitionMode();  // e.g., appInterface->InTransitionMode()
+    bool appIsStopping = appInterface->IsStoppingPhase();      // e.g., appInterface->IsStopping()
+    bool appIsCover = appInterface->IsCoverActive();         // e.g., appInterface->IsCover()
+    float appTransitionPos = appInterface->GetTransitionPosition();   // e.g., appInterface->GetTransitionPosition()
+    int appTransitionId = appInterface->GetTransitionId();        // e.g., appInterface->GetTransitionId()
 
     while (clientRunning)
     {
@@ -420,7 +420,7 @@ void NetworkManager::PositionSend(SOCKET socket)
                 if (newSpeed == 0.0)
                 {
                     current_speed = 0.0;
-                    appIsStopping = false; // Synchronize transition state flag back to the application context
+                    appIsStopping = false;
 
                     transition_start_position = pos_value;
                     transition_start_time = std::chrono::steady_clock::now();
@@ -434,7 +434,7 @@ void NetworkManager::PositionSend(SOCKET socket)
                     }
                     else
                     {
-                        transition_duration_ms = 10000.0; // Fallback to 10s boundary
+                        transition_duration_ms = 10000.0;
                     }
 
                     if (transition_duration_ms < 500.0)  transition_duration_ms = 500.0;
@@ -448,6 +448,15 @@ void NetworkManager::PositionSend(SOCKET socket)
                         appInterface->HandleNetworkCommand(std::string(status_buf));
                     }
                     */
+
+					appTransitionId = appInterface->GetTransitionId(); 
+
+                    if (appTransitionId >= 0)
+                    {
+						char status_buf[256];
+                        snprintf(status_buf, sizeof(status_buf), "{\"play_choreography\":%d,\"loop\":false,\"fade_in_seconds\":%.3f}", appTransitionId, (transition_duration_ms / 1000.0));
+						appInterface->HandleNetworkCommand(std::string(status_buf));
+                    }
                 }
             }
             // PHASE 2: MOVE TO DESIRED TARGET VIA SMOOTHSTEP ALGORITHM

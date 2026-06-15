@@ -180,6 +180,50 @@ PlaybackManager* App::GetPlaybackManager()
     return playbackMgr;
 }
 
+bool App::IsBackgroundPlaying()
+{
+    if (!playbackMgr || !playbackMgr->backgroundTrack) 
+        return false;
+
+    return playbackMgr->backgroundActive &&
+        (playbackMgr->backgroundTrack->state == VideoTrackState::Playing ||
+            playbackMgr->backgroundTrack->state == VideoTrackState::FadingIn);
+}
+
+bool App::InTransitionMode()
+{
+    if (!state.networkMgr) 
+        return false;
+
+    return state.networkMgr->IsTransitionActive();
+}
+
+bool App::IsStoppingPhase()
+{
+    if (!state.networkMgr) 
+        return false;
+    
+    return state.networkMgr->IsStoppingPhase();
+}
+
+bool App::IsCoverActive()
+{
+    return playbackMgr ? playbackMgr->coverActive : false;
+}
+
+float App::GetTransitionPosition()
+{
+    if (!state.networkMgr) 
+        return 0.0f;
+    
+    return state.networkMgr->GetTransitionTargetPosition();
+}
+
+int App::GetTransitionId()
+{
+	return state.transitionId;
+}
+
 void App::SetClientSocket(int socket)
 {
 	clientSocket = socket;
