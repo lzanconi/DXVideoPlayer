@@ -60,7 +60,6 @@ public:
 private:
 	//Client methods
 	void RunClient();
-	void HandlePositionSend(SOCKET socket);
 	void PositionSend(SOCKET socket);
 
 	//Server methods
