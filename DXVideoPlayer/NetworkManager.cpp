@@ -7,6 +7,7 @@
 #include <windows.h>
 #include <cmath>
 #include <algorithm>
+#include "utils.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -463,7 +464,8 @@ void NetworkManager::PositionSend(SOCKET socket)
                 }
 
                 // SmoothStep generation formula helper mapping: 3t^2 - 2t^3
-                double smooth_perc = percentage * percentage * (3.0 - 2.0 * percentage);
+                /*double smooth_perc = percentage * percentage * (3.0 - 2.0 * percentage);*/
+                double smooth_perc = smoothStep(percentage);
                 pos_value = static_cast<float>(transition_start_position * (1.0 - smooth_perc) + transition_target_position * smooth_perc);
                 progress_pct = percentage;
             }
