@@ -96,6 +96,8 @@ void PlaybackManager::UpdateLayers(ID3D11DeviceContext* context)
 	
 	HandlePendingBackgroundCmd(state);
 
+	HandleCoverFadeDeferral();
+
 	//Manages the active states of the foreground, automatically deactivating it when it has finished playing or completed its fade-out transitions.
 	ResetForegroundLayer();
 
@@ -874,7 +876,31 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 	if ((!forceCover && distanceToFirst < 1.0f) || config.disable_cover)
 	{
 		Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "PlayChoreography", "Starting choreography from the beginning. Distance to first position: " + std::to_string(distanceToFirst) + "s");
-		PlayTrackOnLayer(filename, backgroundTrack, backgroundActive, LayerType::Background);
+		if (loopVid)
+		{
+			this->PlayTrackOnLayer(filename, this->backgroundTrack, this->backgroundActive, LayerType::Background);
+		}
+		else
+		{
+			this->ShowBgLastFrame(filename, idVal);
+		}
+
+		// === THE FIX ===
+		// If the cover track is actively rendering over the top, tell it to fade out and stop looping
+		if (coverActive && coverTrack)
+		{
+			Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "PlayChoreography", "Cover layer detected. Injecting immediate forced fade out.");
+
+			// Turn off looping on the cover track so it finishes playing out
+			if (coverTrack->GetSource())
+			{
+				coverTrack->GetSource()->looped = false;
+			}
+
+			// Force a fade-out transition using the requested timing parameter
+			float effFadeOut = (fadeOut == 0.0f) ? config.cover_fade_out_time : fadeOut;
+			coverTrack->StartForcedFadeOut(effFadeOut);
+		}
 	}
 	//PLAY WITH COVER
 	//If the screen is far away from the start position ofthe choreography video, a cover transition is used to mask the movement. 
@@ -894,9 +920,13 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 				this->ShowBgLastFrame(targetFile, idVal);
 			}
 
-			// Defer cover fade-out until the first frame of the new background is processed
-			this->coverStopPending = true;
-			this->coverStopPendingFade = fadeOut;
+			if (this->coverTrack && this->coverActive)
+			{
+				if (this->coverTrack->GetSource()) 
+					this->coverTrack->GetSource()->looped = false;
+				
+				this->coverTrack->StartForcedFadeOut(fadeOut);
+			}
 		};
 
 		if (!forceCover && std::abs(current_pos - last_pos) < 1.0f)
@@ -993,4 +1023,25 @@ void PlaybackManager::ShowBgLastFrame(const std::string& filename, int idVal)
 
 void PlaybackManager::HandleCoverFadeDeferral()
 {
+	// Check if the callback set the pending flag, and if the background layer has actively started decoding frames
+	if (coverStopPending && backgroundActive && backgroundTrack && backgroundTrack->IsActive())
+	{
+		// Check if the background video has processed past its initial setup point
+		if (backgroundTrack->GetSource() && backgroundTrack->GetSource()->internalPTS > 0.0)
+		{
+			coverStopPending = false; // Reset the deferral state anchor
+
+			if (coverTrack && coverActive)
+			{
+				Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "HandleCoverFadeDeferral",
+					">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>Background frame ready. Killing Cover layer loop and injecting forced fade out.");
+
+				// Break the looping instruction explicitly
+				coverTrack->Looped(false);
+
+				// Trigger the forced alpha decay path
+				coverTrack->StartForcedFadeOut(coverStopPendingFade);
+			}
+		}
+	}
 }
