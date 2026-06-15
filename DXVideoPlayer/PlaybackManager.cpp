@@ -107,6 +107,8 @@ void PlaybackManager::UpdateLayers(ID3D11DeviceContext* context)
 	//Manages the active states of the cover, automatically deactivating it when it has finished playing or completed its fade-out transitions.
 	ResetCoverLayer();
 
+	HandlePendingChoreographyCmd(state);
+
 	//Checks if there is a pending command to play a new cover video and if the cover layer is not active, and if so, processes the pending command to start playing the new cover video.
 	HandlePendingCoverCmd(state);
 
@@ -340,6 +342,32 @@ void PlaybackManager::HandlePendingForegroundCmd(AppState& state)
 			// Instantly instantiate Video B and reset its properties ready to be played the next time we enter the Main Loop.
 			// The actual playback of Video B will be triggered in the next iteration of the Run loop once the current foreground video has fully finished and foregroundActive becomes false.
 			PlayTrackOnLayer(pendingForegroundCmd.filename, foregroundTrack, foregroundActive, LayerType::Foreground, &pendingForegroundCmd);
+		}
+	}
+}
+
+void PlaybackManager::HandlePendingChoreographyCmd(AppState& state)
+{
+	// If the foreground layer is completely clear, and a choreography command is waiting in line
+	if (!foregroundActive && hasPendingChoreographyCmd)
+	{
+		hasPendingChoreographyCmd = false; // Reset the gate anchor
+
+		Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "HandlePendingChoreographyCmd",
+			"Foreground cleared. Booting pending choreography ID: " + std::to_string(pendingChoreographyCmd.choreoID));
+
+		// Extract the filename associated with this choreography ID
+		if (state.choresMap.count(pendingChoreographyCmd.choreoID) > 0)
+		{
+			std::string filename = state.choresMap[pendingChoreographyCmd.choreoID];
+
+			// Re-route the playback request directly into PlayChoreography
+			PlayChoreography(filename,
+				pendingChoreographyCmd.fgFadeOutDuration,
+				pendingChoreographyCmd.fadeInDuration,
+				pendingChoreographyCmd.fadeOutDuration,
+				pendingChoreographyCmd.choreoID,
+				pendingChoreographyCmd.looped); // mapping boolean value cleanly
 		}
 	}
 }

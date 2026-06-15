@@ -73,6 +73,7 @@ public:
 	void HandlePendingBackgroundCmd(AppState& state);
 	void HandleBackgroundEvents();
 	void HandlePendingForegroundCmd(AppState& state);
+	void HandlePendingChoreographyCmd(AppState& state);
 	void HandleSequenceShutdown();
 	void HandlePendingCoverCmd(AppState& state);
 	void HandlePendingSequenceCmd();

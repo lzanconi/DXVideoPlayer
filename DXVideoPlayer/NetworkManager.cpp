@@ -82,6 +82,8 @@ void NetworkManager::Stop()
 void NetworkManager::SetupTransition(float targetPos, int id)
 {
     std::lock_guard<std::mutex> lock(clientSocketMutex);
+
+    // Explicitly lock the exact target position passed from PlayChoreography Call #1
     this->transition_target_position = targetPos;
     this->transition_mode_active = true;
     this->stopping_phase = true;
@@ -167,14 +169,6 @@ void NetworkManager::PositionSend(SOCKET socket)
 
     while (clientRunning)
     {
-        /*bool appIsPlaying = appInterface->IsBackgroundPlaying();
-        bool appTransitionMode = appInterface->InTransitionMode();
-        bool appIsStopping = appInterface->IsStoppingPhase();
-        bool appIsCover = appInterface->IsCoverActive();
-        float appTransitionPos = appInterface->GetTransitionPosition();
-        int appTransitionId = appInterface->GetTransitionId();*/
-
-
         auto now = std::chrono::steady_clock::now();
         auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(next_frame - now);
         if (time_left.count() > 2)
@@ -301,7 +295,7 @@ void NetworkManager::PositionSend(SOCKET socket)
                     transition_start_time = std::chrono::steady_clock::now();
                     transition_target_position = appInterface->GetTransitionPosition();
 
-                    float distance_to_travel = std::abs(transition_target_position - transition_start_position);
+                    float distance_to_travel = std::abs(this->transition_target_position - transition_start_position);
 
                     if (desired_average_speed > 0.0f)
                     {
