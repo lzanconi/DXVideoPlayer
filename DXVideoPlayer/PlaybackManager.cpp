@@ -924,11 +924,6 @@ void PlaybackManager::TransitionTo(float targetPos, std::function<void()> onComp
 		return;
 	}
 
-	if (state.networkMgr)
-	{
-		state.networkMgr->SetupTransition(targetPos, idVal);
-	}
-
 	if (coverActive && coverTrack && coverTrack->GetSource()->filename == coverVideo)
 	{
 		this->onTransitionCompleteCallback = std::move(onComplete);
@@ -939,6 +934,11 @@ void PlaybackManager::TransitionTo(float targetPos, std::function<void()> onComp
 			ResetForegroundLayer();
 		}
 		return;
+	}
+
+	if (state.networkMgr)
+	{
+		state.networkMgr->SetupTransition(targetPos, idVal);
 	}
 
 	this->onTransitionCompleteCallback = std::move(onComplete);

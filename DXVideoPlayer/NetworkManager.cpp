@@ -280,7 +280,8 @@ void NetworkManager::PositionSend(SOCKET socket)
                 if (current_speed > 0)
                 {
                     newSpeed -= brake_dv;
-                    if (newSpeed < 0) newSpeed = 0;
+                    if (newSpeed < 0) 
+                        newSpeed = 0;
                 }
                 else if (current_speed < 0)
                 {
@@ -294,6 +295,7 @@ void NetworkManager::PositionSend(SOCKET socket)
                 {
                     current_speed = 0.0;
                     appIsStopping = false;
+                    this->stopping_phase = false;
 
                     transition_start_position = pos_value;
                     transition_start_time = std::chrono::steady_clock::now();
@@ -313,14 +315,14 @@ void NetworkManager::PositionSend(SOCKET socket)
                     if (transition_duration_ms < 500.0)  transition_duration_ms = 500.0;
                     if (transition_duration_ms > 20000.0) transition_duration_ms = 20000.0;
 
-                    appTransitionId = appInterface->GetTransitionId();
+                    /*appTransitionId = appInterface->GetTransitionId();
 
                     if (appTransitionId >= 0)
                     {
                         char status_buf[256];
                         snprintf(status_buf, sizeof(status_buf), "{\"play_choreography\":%d,\"loop\":false,\"fade_in_seconds\":%.3f}", appTransitionId, (transition_duration_ms / 1000.0));
                         appInterface->HandleNetworkCommand(std::string(status_buf));
-                    }
+                    }*/
                 }
             }
             // PHASE 2: MOVE TO DESIRED TARGET VIA SMOOTHSTEP ALGORITHM
@@ -333,7 +335,16 @@ void NetworkManager::PositionSend(SOCKET socket)
                 {
                     percentage = 1.0;
                     appTransitionMode = false;
+					this->transition_mode_active = false;
                     std::cout << "[Network Client] Move complete at position: " << transition_target_position << std::endl;
+
+                    appTransitionId = appInterface->GetTransitionId();
+                    if (appTransitionId >= 0)
+                    {
+                        char status_buf[256];
+                        snprintf(status_buf, sizeof(status_buf), "{\"play_choreography\":%d,\"loop\":false,\"fade_in_seconds\":1.0}", appTransitionId);
+                        appInterface->HandleNetworkCommand(std::string(status_buf));
+                    }
                 }
 
                 double smooth_perc = smoothStep(percentage);
