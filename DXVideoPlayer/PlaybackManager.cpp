@@ -417,7 +417,7 @@ void PlaybackManager::HandlePendingSequenceCmd()
 		Sequence* targetSequence = nullptr;	
 		for (auto seq : appInterface->GetAppState().sequences)
 		{
-			if (seq->name == pendingSequenceCmd.filename)
+			if (seq->name == GetFilenameFromPath(pendingSequenceCmd.filename))
 			{
 				targetSequence = seq;
 				break;
@@ -819,27 +819,37 @@ void PlaybackManager::ProcessDeferredCommands()
 
 				if (foundChoreo > 0)
 				{
-					if (foregroundActive)
+					// 1. Completely terminate any running sequence engine loop from the first choreography
+					if (activeSequence && activeSequence->isActive)
 					{
-						hasPendingChoreographyCmd = true;
-						pendingChoreographyCmd = cmd;
-
-						if (activeSequence && activeSequence->isActive)
-						{
-							activeSequence->Stop();
-						}
-
-						if (foregroundTrack && foregroundTrack->IsActive())
-						{
-							foregroundTrack->StartForcedFadeOut(cmd.fgFadeOutDuration);
-						}
+						logger->LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "ProcessDeferredCommands", "Aborting running sequence engine loops.");
+						activeSequence->Stop();
+						activeSequence = nullptr; // Clear the handle completely
 					}
-					else
+
+					// 2. FORCE DESTROY and drop the previous cover track locks completely
+					if (coverTrack)
 					{
-						hasPendingChoreographyCmd = false;
-						std::string filename = state.choresMap[cmd.choreoID];
-						PlayChoreography(filename, cmd.fgFadeOutDuration, cmd.fadeInDuration, cmd.fadeOutDuration, cmd.choreoID, cmd.forceCoverOnExit);
+						coverTrack->SetActive(false);
+						coverActive = false; // Force clear the block gate for TransitionTo()
+						coverTrack.reset();  // Destroy the unique_ptr resource to guarantee a clean slate
 					}
+
+					// 3. Clear any historical network synchronization flags or callbacks
+					state.transitionId = -1;
+					this->onTransitionCompleteCallback = nullptr;
+					this->coverStopPending = false; // Kill any background frame render delays
+
+					// 4. Force fade out the current sequence video playing in the foreground layer
+					if (foregroundActive && foregroundTrack && foregroundTrack->IsActive())
+					{
+						foregroundTrack->StartForcedFadeOut(cmd.fgFadeOutDuration);
+					}
+
+					// 5. Instantly boot the fresh choreography directly
+					hasPendingChoreographyCmd = false;
+					std::string filename = state.choresMap[cmd.choreoID];
+					PlayChoreography(filename, cmd.fgFadeOutDuration, cmd.fadeInDuration, cmd.fadeOutDuration, cmd.choreoID, cmd.looped, cmd.forceCoverOnExit);
 				}
 				
 
