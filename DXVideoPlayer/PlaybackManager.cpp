@@ -971,7 +971,7 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 			}
 		};
 
-		if (!forceCover && std::abs(current_pos - last_pos) < 1.0f)
+		if (!forceCover && std::abs(current_pos - first_pos) < 1.0f)
 		{
 			// Already at final position -> skip cover initialization pipeline loop, execute target sequence now
 			callback();
@@ -979,7 +979,7 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 		else
 		{
 			// Must undergo smooth motion transition phase through cover asset layer
-			TransitionTo(last_pos, callback, fadeIn, fadeOut, idVal, fgFadeOut);
+			TransitionTo(first_pos, callback, fadeIn, fadeOut, idVal, fgFadeOut);
 		}
 	}
 }
