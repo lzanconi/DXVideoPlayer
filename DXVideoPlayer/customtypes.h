@@ -7,6 +7,7 @@ class VideoSource;
 class IRenderer;
 class NetworkManager;
 class Sequence;
+class Logger;
 
 struct AppState
 {
@@ -16,6 +17,7 @@ struct AppState
 	std::vector<Sequence*> sequences;
     IRenderer* renderer = nullptr;
     NetworkManager* networkMgr = nullptr;
+	Logger* logger = nullptr;   
 	float lastSentPosition = 0.0f;
 	int transitionId = -1;
  };
@@ -75,6 +77,12 @@ struct VideoContent
     //Optional position data loaded from a corresponding .csv file
     std::vector<float> positions;
     std::vector<BackgroundEvent> events;
+};
+
+enum class MESSAGE_TYPE
+{
+    INFO,
+    ERRORS
 };
 
 enum class VideoTrackState

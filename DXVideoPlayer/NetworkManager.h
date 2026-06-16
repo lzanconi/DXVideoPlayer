@@ -13,6 +13,7 @@ typedef int SOCKET;
 #endif
 
 class IApp;
+class Logger;
 
 class NetworkManager
 {
@@ -22,6 +23,7 @@ private:
 	std::atomic<bool> clientRunning;
 	SOCKET activeClientSocket = (SOCKET)-1;
 	std::mutex clientSocketMutex;
+	Logger* logger = nullptr;	
 
 	// Server components
 	std::thread serverThread;

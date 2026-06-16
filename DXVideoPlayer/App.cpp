@@ -11,6 +11,7 @@
 #include <json.hpp>
 #include "Sequence.h"
 #include "PlaybackManager.h"
+#include "Logger.h"
 
 using json = nlohmann::json;
 
@@ -24,6 +25,9 @@ App::App(int width, int height)
 
     contentMgr = new ContentManager(this);
 	contentMgr->LoadContents();
+
+	logger = new Logger(this);
+	state.logger = logger;
 
     if (contentMgr->GetVideoContentsMap().empty())
     {
@@ -61,6 +65,9 @@ App::App(int width, int height)
 
 App::~App()
 {
+    if (logger)
+		delete logger;
+
     if (configMgr)
 		delete configMgr;
 

@@ -8,12 +8,14 @@
 #include <cmath>
 #include <algorithm>
 #include "utils.h"
+#include "Logger.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
 NetworkManager::NetworkManager(IApp* appInterface)
     : appInterface(appInterface)
 {
+	logger = appInterface->GetAppState().logger;
 }
 
 NetworkManager::~NetworkManager()
@@ -27,14 +29,14 @@ void NetworkManager::Start()
     {
         clientRunning = true;
         clientThread = std::thread(&NetworkManager::RunClient, this);
-        std::cout << "NetworkManager: Client background thread started." << std::endl;
+		logger->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "Start", "Client background thread started."); 
     }
 
     if (!serverRunning)
     {
         serverRunning = true;
         serverThread = std::thread(&NetworkManager::RunServer, this);
-        std::cout << "NetworkManager: Server listener thread started on port " << listenPort << "." << std::endl;
+		logger->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "Start", "Server listener thread started on port " + std::to_string(listenPort) + ".");
     }
 }
 
@@ -76,7 +78,7 @@ void NetworkManager::Stop()
         serverThread.join();
     }
 
-    std::cout << "NetworkManager: All background threads stopped cleanly." << std::endl;
+	logger->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "Stop", "All background threads stopped cleanly.");
 }
 
 void NetworkManager::SetupTransition(float targetPos, int id)
@@ -125,7 +127,8 @@ void NetworkManager::RunClient()
         serverAddr.sin_port = htons(config.target_port);
         inet_pton(AF_INET, config.target_ip.c_str(), &serverAddr.sin_addr);
 
-        std::cout << "[Network Client] Attempting to connect to server at " << config.target_ip << ":" << config.target_port << "..." << std::endl;
+		logger->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunClient", "Attempting to connect to server at " + config.target_ip + ":" + std::to_string(config.target_port) + "...");
+
         if (connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
         {
             std::lock_guard<std::mutex> lock(clientSocketMutex);
@@ -138,7 +141,8 @@ void NetworkManager::RunClient()
             continue;
         }
 
-        std::cout << "[Network Client]: Client connected to Position Server." << std::endl;
+		logger->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunClient", "Client connected to Position Server.");
+
         PositionSend(clientSocket);
 
         {
@@ -329,7 +333,7 @@ void NetworkManager::PositionSend(SOCKET socket)
                 {
                     percentage = 1.0;
 					this->transition_mode_active = false;
-                    std::cout << "[Network Client] Move complete at position: " << transition_target_position << std::endl;
+					logger->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "PositionSend", "Transition complete at position: " + std::to_string(transition_target_position));
 
                     int transitionId = appInterface->GetTransitionId();
                     if (transitionId >= 0)
@@ -377,7 +381,7 @@ void NetworkManager::PositionSend(SOCKET socket)
         {
             if (last_known_position == appInterface->GetTransitionPosition() && !sequence_triggered)
             {
-                std::cout << "[Network Client] Cover frame transition finished! " << last_known_position << std::endl;
+				logger->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "PositionSend", "Cover frame transition finished at position: " + std::to_string(last_known_position));
                 sequence_triggered = true;
             }
         }
@@ -387,7 +391,7 @@ void NetworkManager::PositionSend(SOCKET socket)
         {
             if (send(socket, msg_buffer, len + 1, 0) == -1)
             {
-                std::cout << "[Network Client] Lost synchronization stream connection link channel." << std::endl;
+				logger->LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "PositionSend", "Lost synchronization stream connection link channel.");
                 break;
             }
         }
@@ -424,7 +428,7 @@ void NetworkManager::RunServer()
 
         if (bind(localListenSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
         {
-            std::cerr << "[Network Server] Bind failed on port " << listenPort << std::endl;
+			logger->LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "RunServer", "Bind failed on port " + std::to_string(listenPort) + ".");
             closesocket(localListenSocket);
             std::this_thread::sleep_for(std::chrono::seconds(2));
             continue;
@@ -437,7 +441,7 @@ void NetworkManager::RunServer()
             continue;
         }
 
-        std::cout << "[Network Server] Server listening on port " << listenPort << "..." << std::endl;
+		logger->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunServer", "Server listening on port " + std::to_string(listenPort) + ".");
 
         {
             std::lock_guard<std::mutex> lock(serverSocketMutex);
@@ -467,7 +471,7 @@ void NetworkManager::RunServer()
             char clientIPStr[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &clientAddr.sin_addr, clientIPStr, INET_ADDRSTRLEN);
 
-            std::cout << "[Network Server] [+] New client connected from: " << clientIPStr << std::endl;
+			logger->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunServer", "New client connected from: " + std::string(clientIPStr));
 
             appInterface->SetClientSocket(inboundClient);
 
@@ -502,7 +506,7 @@ void NetworkManager::HandleIncomingConnection(SOCKET clientSocket)
         }
         else if (bytesReceived == 0)
         {
-            std::cout << "[Network Server] [-] Client disconnected gracefully." << std::endl;
+			logger->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "HandleIncomingConnection", "Client disconnected gracefully.");
             break;
         }
         else
@@ -512,7 +516,7 @@ void NetworkManager::HandleIncomingConnection(SOCKET clientSocket)
             {
                 continue;
             }
-            std::cout << "[Network Server] [-] Client connection lost abruptly." << std::endl;
+			logger->LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "HandleIncomingConnection", "Client connection lost abruptly.");
             break;
         }
     }

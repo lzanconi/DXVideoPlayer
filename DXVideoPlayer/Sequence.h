@@ -4,11 +4,13 @@
 #include "customtypes.h"
 
 class PlaybackManager;
+class Logger;
 
 class Sequence
 {
 private:
 	PlaybackManager* playbackMgr;
+	Logger* logger;
 
 public:
 	std::string name;

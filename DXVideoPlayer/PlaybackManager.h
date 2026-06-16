@@ -45,6 +45,7 @@ private:
 	bool coverStopPending = false;
 	float coverStopPendingFade = 0.0f;
 	std::function<void()> onTransitionCompleteCallback = nullptr;
+	Logger* logger = nullptr;	
 
 public:
 	std::unique_ptr<VideoTrack> backgroundTrack;
@@ -94,5 +95,6 @@ public:
 
 	void ShowBgLastFrame(const std::string& filename, int idVal);
 	void HandleCoverFadeDeferral();
+	IApp* GetAppInterface() const { return appInterface; }
 };
 

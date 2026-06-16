@@ -2,17 +2,20 @@
 #include <iostream>
 #include "PlaybackManager.h"
 #include "Logger.h"
+#include "App.h"
 
 Sequence::Sequence(std::string& name, const std::vector<SequenceItem>& items, PlaybackManager* playbackMgr)
 	: name(name), items(items), playbackMgr(playbackMgr)
-{ }
+{
+	logger = playbackMgr->GetAppInterface()->GetAppState().logger;
+}
 
 void Sequence::Play(float overrideFadeIn)
 {
 	if (items.empty())
 	{
 		//std::cerr << "[Sequence] No items to play in sequence: " << name << std::endl;
-		Logger::LogMessage(MESSAGE_TYPE::ERRORS, "Sequence", "Play", "No items to play in sequence: " + name);
+		logger->LogMessage(MESSAGE_TYPE::ERRORS, "Sequence", "Play", "No items to play in sequence: " + name);
 		return;
 	}
 
@@ -26,7 +29,7 @@ void Sequence::Play(float overrideFadeIn)
 
 	if (overrideFadeIn >= 0.0f)
 	{
-		Logger::LogMessage(MESSAGE_TYPE::INFO, "Sequence", "Play", "Applying automated timeline event override fade-in: " + std::to_string(overrideFadeIn) + "s");
+		logger->LogMessage(MESSAGE_TYPE::INFO, "Sequence", "Play", "Applying automated timeline event override fade-in: " + std::to_string(overrideFadeIn) + "s");
 		cmd.fadeInDuration = overrideFadeIn;
 	}
 	else
@@ -41,7 +44,7 @@ void Sequence::Play(float overrideFadeIn)
 
 void Sequence::Stop()
 {
-	Logger::LogMessage(MESSAGE_TYPE::INFO, "Sequence", "Stop", "Manually stopping sequence: " + name);
+	logger->LogMessage(MESSAGE_TYPE::INFO, "Sequence", "Stop", "Manually stopping sequence: " + name);
 	isActive = false;
 	currentIndex = -1;
 }	
@@ -56,7 +59,7 @@ void Sequence::AdvanceSequence()
 	{
 		if (items[currentIndex].looped)
 		{
-			Logger::LogMessage(MESSAGE_TYPE::INFO, "Sequence", "AdvanceSequence", "Repeating single item due to item-level loop configuration: " + items[currentIndex].filename + " (Index: " + std::to_string(currentIndex) + ")");
+			logger->LogMessage(MESSAGE_TYPE::INFO, "Sequence", "AdvanceSequence", "Repeating single item due to item-level loop configuration: " + items[currentIndex].filename + " (Index: " + std::to_string(currentIndex) + ")");
 
 			DeferredCommand cmd;
 			cmd.type = NetworkCommandType::PlayForeground;
@@ -78,14 +81,14 @@ void Sequence::AdvanceSequence()
 	// 3. Handle the natural end of the sequence (no sequence-level looping)
 	if (currentIndex >= static_cast<int>(items.size()))
 	{
-		Logger::LogMessage(MESSAGE_TYPE::INFO, "Sequence", "AdvanceSequence", "Sequence completed naturally: " + name);
+		logger->LogMessage(MESSAGE_TYPE::INFO, "Sequence", "AdvanceSequence", "Sequence completed naturally: " + name);
 		isActive = false;
 		currentIndex = -1;
 		return;
 	}
 
 	// 4. Play the next item using exactly the parameters from the file
-	Logger::LogMessage(MESSAGE_TYPE::INFO, "Sequence", "AdvanceSequence", "Advancing to next item in sequence: " + name + " (Index: " + std::to_string(currentIndex) + ")");
+	logger->LogMessage(MESSAGE_TYPE::INFO, "Sequence", "AdvanceSequence", "Advancing to next item in sequence: " + name + " (Index: " + std::to_string(currentIndex) + ")");
 
 	DeferredCommand cmd;
 	cmd.type = NetworkCommandType::PlayForeground;
