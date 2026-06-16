@@ -908,9 +908,23 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 		{
 			this->PlayTrackOnLayer(filename, this->backgroundTrack, this->backgroundActive, LayerType::Background);
 		}
+		else if (coverActive && coverTrack)
+		{
+			// Cover is masking the screen: start the background at full opacity beneath it so it is
+			// revealed cleanly once the cover fades out.
+			this->ShowBgLastFrame(filename, idVal);
+		}
 		else
 		{
-			this->ShowBgLastFrame(filename, idVal);
+			// No cover masking the screen: respect the requested fade-in so the new background does
+			// not flash at alpha=1 for a frame before the fade-in can begin.
+			DeferredCommand bgCmd;
+			bgCmd.type = NetworkCommandType::PlayBackground;
+			bgCmd.filename = filename;
+			bgCmd.fadeInDuration = fadeIn;
+			bgCmd.fadeOutDuration = fadeOut;
+			bgCmd.looped = false;
+			this->PlayTrackOnLayer(filename, this->backgroundTrack, this->backgroundActive, LayerType::Background, &bgCmd);
 		}
 
 		// === THE FIX ===
