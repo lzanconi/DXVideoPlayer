@@ -26,5 +26,4 @@ public:
 	virtual int GetTransitionId() = 0;	
     virtual void SetClientSocket(int socket) = 0;
     virtual void HandleNetworkCommand(const std::string& jsonStr) = 0;
-	virtual void SendTCPMessage(const std::string& message) = 0;
 };

@@ -1,18 +1,15 @@
 #pragma once
 #include <string>
-#include "customtypes.h"
 
-class IApp;
+enum class MESSAGE_TYPE
+{
+    INFO,
+    ERRORS
+};
 
 class Logger
 {
-private:
-	IApp* appInterface;
-
 public:
-	Logger(IApp* appInterface);
-	~Logger() = default;
-
-	void LogMessage(MESSAGE_TYPE type, const std::string& className = "", const std::string& methodName = "", const std::string& message = "");
+	static void LogMessage(MESSAGE_TYPE type, const std::string& className = "", const std::string& methodName = "", const std::string& message = "");
 };
 

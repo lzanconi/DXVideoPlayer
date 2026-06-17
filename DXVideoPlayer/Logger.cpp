@@ -1,10 +1,5 @@
 #include "Logger.h"
 #include <iostream>
-#include "App.h"
-
-Logger::Logger(IApp* appInterface) : appInterface(appInterface)
-{
-}
 
 void Logger::LogMessage(MESSAGE_TYPE type, const std::string& className, const std::string& methodName, const std::string& message)
 {
@@ -20,6 +15,4 @@ void Logger::LogMessage(MESSAGE_TYPE type, const std::string& className, const s
 	{
 		std::cout << logMsg << std::endl;
 	}
-
-	appInterface->SendTCPMessage(logMsg);
 }

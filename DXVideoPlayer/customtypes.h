@@ -7,7 +7,6 @@ class VideoSource;
 class IRenderer;
 class NetworkManager;
 class Sequence;
-class Logger;
 
 struct AppState
 {
@@ -17,7 +16,6 @@ struct AppState
 	std::vector<Sequence*> sequences;
     IRenderer* renderer = nullptr;
     NetworkManager* networkMgr = nullptr;
-	Logger* logger = nullptr;   
 	float lastSentPosition = 0.0f;
 	int transitionId = -1;
  };
@@ -79,12 +77,6 @@ struct VideoContent
     std::vector<BackgroundEvent> events;
 };
 
-enum class MESSAGE_TYPE
-{
-    INFO,
-    ERRORS
-};
-
 enum class VideoTrackState
 {
     Stopped,
@@ -127,8 +119,6 @@ struct DeferredCommand
 	float fgFadeOutDuration = 0.0f;
     bool looped = false;
 	bool forceCoverOnExit = false;
-
-	float targetPosition = 0.0f;    
 };
 
 //Struct to represent an item in a video sequence, containing the filename and fade durations

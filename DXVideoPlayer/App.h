@@ -15,7 +15,6 @@ class NetworkManager;
 class PlaybackManager;
 class ConfigManager;	
 class Sequence;
-class Logger;
 struct AVBufferRef;
 struct AVPacket;
 struct AVFrame;
@@ -44,14 +43,13 @@ private:
 	// Stores window position before going fullscreen
 	RECT windowRect = { 0 };
 	WINDOWPLACEMENT windowPlacement = { sizeof(WINDOWPLACEMENT) };
-	Logger* logger = nullptr;	
 
 public:
 	App(int width, int height);
 	~App();
 
 	void Run();
-	void SendTCPMessage(const std::string& message) override;
+	void SendTCPMessage(const std::string& message);
 	
 
 	VideoSource* GetBackgroundVideo() override;
