@@ -824,25 +824,33 @@ void PlaybackManager::ProcessDeferredCommands()
 
 				if (foundChoreo > 0)
 				{
+					//If foregroun layer is active (sequences video or simple foreground video), we need to wait until it finishes to fade out 
 					if (foregroundActive)
 					{
+						//Tells the system that there is a pending choreography command to be processed once the foreground layer is cleared
 						hasPendingChoreographyCmd = true;
 						pendingChoreographyCmd = cmd;
 
+						//If there is an active sequence, stop it to prevent it from advancing to the next item in the sequence
 						if (activeSequence && activeSequence->isActive)
 						{
 							activeSequence->Stop();
 						}
 
+						//If the foreground layer is active, start a forced fade-out transition using the specified duration from the command
 						if (foregroundTrack && foregroundTrack->IsActive())
 						{
 							foregroundTrack->StartForcedFadeOut(cmd.fgFadeOutDuration);
 						}
 					}
+					//If the foreground layer is not active, we can immediately process the choreography command
 					else
 					{
+						//Tells the system that there is no longer a pending choreography command to be processed
 						hasPendingChoreographyCmd = false;
+						//Gets the filename associated with the choreography ID from the choresMap, which will be used to play the corresponding choreography video.
 						std::string filename = state.choresMap[cmd.choreoID];
+						//Calls the PlayChoreography method to initiate the playback of the choreography video with the specified parameters from the command.
 						PlayChoreography(filename, cmd.fgFadeOutDuration, cmd.fadeInDuration, cmd.fadeOutDuration, cmd.choreoID, cmd.forceCoverOnExit);
 					}
 				}
@@ -863,6 +871,7 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 		" fgFadeOut: " + std::to_string(fgFadeOut) + " fadeIn: " + std::to_string(fadeIn) + " fadeOut: " + std::to_string(fadeOut) + " loopVid: " + (loopVid? + "true" : + "false") + 
 		" forceCoverOnExit: " + (forceCoverOnExit ? +"true" : +"false"));
 
+	// 1. Stores this ID in lastChoreoID to track which choreography sequence is currently running
 	if (idVal != -1)
 	{
 		lastChoreoID = idVal;
@@ -872,17 +881,17 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 	bool forceCover = forceCoverOnExitActive;
 	forceCoverOnExitActive = forceCoverOnExit;
 
-	//Verifies if filename exists in the map
+	// 3. Verifies if filename associated withg the choreography exists in the map
 	if (state.sourcesMap.find(filename) == state.sourcesMap.end())
 	{
 		Logger::LogMessage(MESSAGE_TYPE::ERRORS, "PlaybackManager", "PlayChoreography", "Choreography video source " + filename + " not found!");
 		return;
 	}
 
-	//Extracts a reference to the metadata of the target video. This includes position data, event data, and other relevant information.
+	// 4. Extracts a reference to the metadata of the target video. This includes position data, event data, and other relevant information.
 	VideoSource* videoSource = state.sourcesMap[GetFilenameFromPath(filename)];
 
-	//If the video has no position data, this video is a standard background video.
+	// 5. If the video has no position data, this video is a standard background video.
 	if (videoSource->positions.empty())
 	{
 		//Plays a standard background
@@ -890,29 +899,37 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 		return;
 	}
 
+	// 6. 
+	//Extracts the very first position coordinate from the CSV positions file associated with the choreography video
 	float first_pos = videoSource->positions.front();
+	//Extracts the very last position coordinate from CSV positions file associated with the choreography video
 	float last_pos = videoSource->positions.back();
+	//Retrieves the current physical position
 	float current_pos = state.lastSentPosition;
 
-	//DISTANCE CHECK
+	// 7. DISTANCE CHECK
+	// Calculates the absolute delta between the current position and the video's expected target starting position.
 	float distance = std::abs(current_pos - first_pos);
 
-	//PLAY WITHOUT COVER
-	//If the distance from the current position to the first position in the CSV is less than 1 millimeter (std::abs(current_pos - first_pos), plays the choreography video immediately
+	// 8a. PLAY WITHOUT COVER
+	//If the distance from the current position to the first position is less than 1 millimeter (std::abs(current_pos - first_pos), plays the choreography video immediately
 	if ((!forceCover && distance < 1.0f) || config.disable_cover)
 	{
 		Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "PlayChoreography", "Starting choreography from the beginning. Distance to first position: " + std::to_string(distance) + "s");
 		
+		//If the loop property loopVid is true, it routes the video to play directly on the background track natively.
 		if (loopVid)
 		{
 			this->PlayTrackOnLayer(filename, this->backgroundTrack, this->backgroundActive, LayerType::Background);
 		}
 		else if (coverActive && coverTrack)
 		{
-			// Cover is masking the screen: start the background at full opacity beneath it so it is
-			// revealed cleanly once the cover fades out.
+			//This sets up the video completely opaque(alpha = 1.0f), ensuring it is ready for a seamless reveal when the cover drops.
 			/*this->ShowBgLastFrame(filename, idVal);*/
+			this->ShowBgLastFrame(filename, idVal);
 		}
+		//If the screen is entirely unmasked (no cover track playing), starting a video at alpha = 1.0f would cause a harsh, single-frame visual pop before standard updates can calculate blending. 
+		//To solve this, it packages a temporary DeferredCommand instructing the layer to begin smoothly with an alpha fade-in duration.
 		else
 		{
 			DeferredCommand bgCmd;
@@ -923,8 +940,27 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 			bgCmd.looped = false;
 			this->PlayTrackOnLayer(filename, this->backgroundTrack, this->backgroundActive, LayerType::Background, &bgCmd);
 		}
+
+		//COVER HIDE
+		//The current_pos is near enough to the first position in the choreography video, so we can start playing it immediately. 
+		//However, if the cover layer is active, we need to handle it properly.
+		if (coverActive && coverTrack)
+		{
+			Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "PlayChoreography", "Cover layer is active. Injecting immediate forced fade out.");
+
+			// Turn off looping on the cover track so it finishes playing out
+			if (coverTrack->GetSource())
+			{
+				coverTrack->GetSource()->looped = false;
+			}
+
+			// Force a fade-out transition using the requested timing parameter
+			//float coverFadeOut = (fadeOut == 0.0f) ? config.cover_fade_out_time : fadeOut;
+			float coverFadeOut = (fadeOut >= 0.0f) ? fadeOut : config.cover_fade_out_time;
+			coverTrack->StartForcedFadeOut(coverFadeOut);
+		}
 	}
-	//PLAY WITH COVER
+	// 8b. PLAY WITH COVER
 	else
 	{
 		std::string targetFile = filename;
@@ -1018,4 +1054,31 @@ void PlaybackManager::TransitionTo(float targetPos, std::function<void()> onComp
 	coverCmd.looped = true;
 
 	PlayTrackOnLayer(coverVideo, coverTrack, coverActive, LayerType::Cover, &coverCmd);
+}
+
+/*
+* This method is primarily called during choreography updates when a cover video transition completes. 
+* Its goal is to bring the background video to full visibility instantly underneath a fading cover layer so that the transition looks smooth.
+*/
+void PlaybackManager::ShowBgLastFrame(const std::string& filename, int idVal)
+{
+	//This effectively starts the setup and initial frame decoding loop for the background video.
+	PlayTrackOnLayer(filename, backgroundTrack, backgroundActive, LayerType::Background);
+
+	//A safety condition checking if the backgroundTrack object was successfully created and initialized by the preceding PlayTrackOnLayer function call
+	if (backgroundTrack)
+	{
+		//Set the background track to active and playing state, ensuring it is ready for rendering in the next frame update.
+		backgroundTrack->SetActive(true);
+		backgroundTrack->state = VideoTrackState::Playing;
+
+		VideoSource* bgSource = backgroundTrack->GetSource();
+		if (bgSource)
+		{
+			//By initializing it fully opaque immediately, it prevents the video from trying to perform its own standard fade-in behavior
+			bgSource->alpha = 1.0f;   
+			//Ensure it reaches its actual ending naturally without restarting
+			bgSource->looped = false;  
+		}
+	}
 }
