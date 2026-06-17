@@ -851,7 +851,7 @@ void PlaybackManager::ProcessDeferredCommands()
 						//Gets the filename associated with the choreography ID from the choresMap, which will be used to play the corresponding choreography video.
 						std::string filename = state.choresMap[cmd.choreoID];
 						//Calls the PlayChoreography method to initiate the playback of the choreography video with the specified parameters from the command.
-						PlayChoreography(filename, cmd.fgFadeOutDuration, cmd.fadeInDuration, cmd.fadeOutDuration, cmd.choreoID, cmd.forceCoverOnExit);
+						PlayChoreography(filename, cmd.fgFadeOutDuration, cmd.fadeInDuration, cmd.fadeOutDuration, cmd.choreoID, cmd.looped, cmd.forceCoverOnExit);
 					}
 				}
 				
@@ -935,8 +935,8 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 			DeferredCommand bgCmd;
 			bgCmd.type = NetworkCommandType::PlayBackground;
 			bgCmd.filename = filename;
-			bgCmd.fadeInDuration = fadeIn;
-			bgCmd.fadeOutDuration = fadeOut;
+			bgCmd.fadeInDuration = 0.0f;
+			bgCmd.fadeOutDuration = 0.0f;
 			bgCmd.looped = false;
 			this->PlayTrackOnLayer(filename, this->backgroundTrack, this->backgroundActive, LayerType::Background, &bgCmd);
 		}
@@ -1014,8 +1014,13 @@ void PlaybackManager::TransitionTo(float targetPos, float coverfadeIn, float cov
 */
 void PlaybackManager::ShowBgLastFrame(const std::string& filename, int idVal)
 {
+	DeferredCommand bgCmd;
+	bgCmd.type = NetworkCommandType::PlayBackground;
+	bgCmd.filename = filename;
+	bgCmd.fadeInDuration = 0.0f; 
+	bgCmd.fadeOutDuration = 0.0f;
 	//This effectively starts the setup and initial frame decoding loop for the background video.
-	PlayTrackOnLayer(filename, backgroundTrack, backgroundActive, LayerType::Background);
+	PlayTrackOnLayer(filename, backgroundTrack, backgroundActive, LayerType::Background, &bgCmd);
 
 	//A safety condition checking if the backgroundTrack object was successfully created and initialized by the preceding PlayTrackOnLayer function call
 	if (backgroundTrack)
