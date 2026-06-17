@@ -964,42 +964,14 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 	else
 	{
 		std::string targetFile = filename;
-		auto callback = [this, targetFile, idVal, loopVid, fadeIn, fadeOut]()
-		{
-			if (idVal != -1) {
-				this->lastChoreoID = idVal;
-			}
-			if (loopVid) {
-				this->PlayTrackOnLayer(targetFile, this->backgroundTrack, this->backgroundActive, LayerType::Background);
-			}
-			else {
-				//this->ShowBgLastFrame(targetFile, idVal);
-				std::cout << "[PlayChoreography Callback] Playing choreography video on background layer: " << targetFile << std::endl;
-			}
 
-			if (this->coverTrack && this->coverActive)
-			{
-				if (this->coverTrack->GetSource())
-					this->coverTrack->GetSource()->looped = false;
+		// Must undergo smooth motion transition phase through cover asset layer
+		TransitionTo(first_pos, fadeIn, fadeOut, idVal, fgFadeOut);
 
-				this->coverTrack->StartForcedFadeOut(fadeOut);
-			}
-		};
-
-		if (!forceCover && std::abs(current_pos - first_pos) < 1.0f)
-		{
-			// Already at final position -> skip cover initialization pipeline loop, execute target sequence now
-			callback();
-		}
-		else
-		{
-			// Must undergo smooth motion transition phase through cover asset layer
-			TransitionTo(first_pos, callback, fadeIn, fadeOut, idVal, fgFadeOut);
-		}
 	}
 }
 
-void PlaybackManager::TransitionTo(float targetPos, std::function<void()> onComplete, float coverfadeIn, float coverfadeOut, int idVal, float fgFadeOut)
+void PlaybackManager::TransitionTo(float targetPos, float coverfadeIn, float coverfadeOut, int idVal, float fgFadeOut)
 {
 	AppState& state = appInterface->GetAppState();
 	Config& config = appInterface->GetConfig();
@@ -1012,33 +984,12 @@ void PlaybackManager::TransitionTo(float targetPos, std::function<void()> onComp
 		return;
 	}
 
-	//Evaluates a shortcut scenario: checks if the cover layer is already actively rendering on screen, if its track wrapper object is initialized, and 
-	//if the current file matching that tracking pointer is already the exact cover video requested.
-	//
-	//Safely bypasses the subsequent cover initialization pipeline because the correct cover overlay is already active
-	if (coverActive && coverTrack && coverTrack->GetSource()->filename == coverVideo)
-	{
-		//Registers the incoming onComplete callback
-		this->onTransitionCompleteCallback = std::move(onComplete);
-		state.transitionId = idVal;
-
-		/*if (foregroundActive && fgFadeOut > -99.0f)
-		{
-			ResetForegroundLayer();
-		}*/
-
-		return;
-	}
-
 	//Updates the NetworkManager to make it ready for the Brake-Move-To transition
 	if (state.networkMgr)
 	{
 		state.networkMgr->SetupTransition(targetPos, idVal);
 	}
 
-	//Updates the callback to be triggered once the transition is completed. 
-	//This callback is responsible for starting the new background video once the cover fade-out has completed
-	this->onTransitionCompleteCallback = std::move(onComplete);
 	state.transitionId = idVal;
 
 	//Determines the cover fade-in and fade-out durations to be used for this transition. 
