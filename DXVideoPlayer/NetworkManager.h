@@ -48,6 +48,9 @@ private:
 	double transition_duration_ms = 10000.0;
 	std::chrono::steady_clock::time_point transition_start_time;
 
+	float transitionFadeIn = 0.0f;
+	float transitionFadeOut = 0.0f;
+
 public:
 	NetworkManager(IApp* appInterface);
 	~NetworkManager();
@@ -57,7 +60,7 @@ public:
 	bool IsTransitionActive() const { return transition_mode_active; }
 	bool IsStoppingPhase() const { return stopping_phase; }
 	float GetTransitionTargetPosition() const { return transition_target_position; }
-	void SetupTransition(float targetPos, int id);
+	void SetupTransition(float targetPos, float fadeIn, float fadeOut, int id);
 
 private:
 	//Client methods

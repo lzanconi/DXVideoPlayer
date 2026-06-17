@@ -84,12 +84,14 @@ void NetworkManager::Stop()
 * targetPos -> the target playback position to transition to
 * id -> the choreography ID associated with this transition, used for logging and debugging purposes    
 */
-void NetworkManager::SetupTransition(float targetPos, int id)
+void NetworkManager::SetupTransition(float targetPos, float fadeIn, float fadeOut, int id)
 {
     std::lock_guard<std::mutex> lock(clientSocketMutex);
 
     //Assigns the new target pos
     this->transition_target_position = targetPos;
+	this->transitionFadeIn = fadeIn;
+	this->transitionFadeOut = fadeOut;
     //Redirects the PositionSend pipeline away from sending live video-calculated frames, shifting it instead into Brake-Move-to transition logic loop.
     this->transition_mode_active = true;
     //Before moving to the target position via a smooth curve, the system uses this flag to actively decelerate (brake) the current velocity down to 0.0
@@ -345,7 +347,11 @@ void NetworkManager::PositionSend(SOCKET socket)
                     if (transitionId >= 0)
                     {
                         char status_buf[256];
-                        snprintf(status_buf, sizeof(status_buf), "{\"play_choreography\":%d,\"loop\":false,\"fade_in_seconds\":1.0}", transitionId);
+                        //snprintf(status_buf, sizeof(status_buf), "{\"play_choreography\":%d,\"loop\":false,\"fade_in_seconds\":1.0}", transitionId);
+                        snprintf(status_buf, sizeof(status_buf),
+                            "{\"play_choreography\":%d,\"loop\":false,\"fade_in_seconds\":%.3f,\"fade_out_seconds\":%.3f}",
+                            transitionId, this->transitionFadeIn, this->transitionFadeOut);
+
                         appInterface->HandleNetworkCommand(std::string(status_buf));
                     }
                 }

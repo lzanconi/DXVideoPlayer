@@ -984,24 +984,25 @@ void PlaybackManager::TransitionTo(float targetPos, float coverfadeIn, float cov
 		return;
 	}
 
+	//Determines the cover fade-in and fade-out durations to be used for this transition. 
+	//If the incoming parameters are set to a non-negative value, it uses those values; otherwise, it falls back to the default durations specified in the configuration.
+	float _coverFadeIn = (coverfadeIn >= 0.0f) ? coverfadeIn : config.cover_fade_in_time;
+	float _coverFadeOut = (coverfadeOut >= 0.0f) ? coverfadeOut : config.cover_fade_out_time;
+
 	//Updates the NetworkManager to make it ready for the Brake-Move-To transition
 	if (state.networkMgr)
 	{
-		state.networkMgr->SetupTransition(targetPos, idVal);
+		state.networkMgr->SetupTransition(targetPos, _coverFadeIn, _coverFadeOut, idVal);
 	}
 
 	state.transitionId = idVal;
 
-	//Determines the cover fade-in and fade-out durations to be used for this transition. 
-	//If the incoming parameters are set to a non-negative value, it uses those values; otherwise, it falls back to the default durations specified in the configuration.
-	float coverFadeIn = (coverfadeIn >= 0.0f) ? coverfadeIn : config.cover_fade_in_time;
-	float coverFadeOut = (coverfadeOut >= 0.0f) ? coverfadeOut : config.cover_fade_out_time;
-
+	
 	DeferredCommand coverCmd;
 	coverCmd.type = NetworkCommandType::PlayCover;
 	coverCmd.filename = coverVideo;
-	coverCmd.fadeInDuration = coverFadeIn;
-	coverCmd.fadeOutDuration = coverFadeOut;
+	coverCmd.fadeInDuration = _coverFadeIn;
+	coverCmd.fadeOutDuration = _coverFadeOut;
 	coverCmd.looped = true;
 
 	PlayTrackOnLayer(coverVideo, coverTrack, coverActive, LayerType::Cover, &coverCmd);
