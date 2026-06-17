@@ -13,6 +13,7 @@ typedef int SOCKET;
 #endif
 
 class IApp;
+class Logger;
 
 class NetworkManager
 {
@@ -22,6 +23,7 @@ private:
 	std::atomic<bool> clientRunning;
 	SOCKET activeClientSocket = (SOCKET)-1;
 	std::mutex clientSocketMutex;
+	Logger* logger = nullptr;
 
 	// Server components
 	std::thread serverThread;
@@ -55,11 +57,11 @@ public:
 	bool IsTransitionActive() const { return transition_mode_active; }
 	bool IsStoppingPhase() const { return stopping_phase; }
 	float GetTransitionTargetPosition() const { return transition_target_position; }
+	void SetupTransition(float targetPos, int id);
 
 private:
 	//Client methods
 	void RunClient();
-	void HandlePositionSend(SOCKET socket);
 	void PositionSend(SOCKET socket);
 
 	//Server methods

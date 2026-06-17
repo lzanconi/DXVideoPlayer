@@ -4,6 +4,7 @@
 #include <queue>
 #include <mutex>
 #include <string>
+#include <functional>
 #include "customtypes.h"
 #include "VideoTrack.h"
 
@@ -40,6 +41,11 @@ private:
 
 	int lastChoreoID = -1;
 
+	bool forceCoverOnExitActive = false;
+	bool coverStopPending = false;
+	float coverStopPendingFade = 0.0f;
+	std::function<void()> onTransitionCompleteCallback = nullptr;
+
 public:
 	std::unique_ptr<VideoTrack> backgroundTrack;
 	std::unique_ptr<VideoTrack> foregroundTrack;
@@ -73,6 +79,7 @@ public:
 	void PlayTrackOnLayerIndex(int videoSourceIdx, std::unique_ptr<VideoTrack>& targetTrack, bool& targetActiveFlag, const LayerType& layerType, DeferredCommand* cmd = nullptr);
 	void PlayTrackOnLayer(const std::string& videoName, std::unique_ptr<VideoTrack>& targetTrack, bool& targetActiveFlag, const LayerType& layerType, DeferredCommand* cmd = nullptr);
 	void PlaySequenceItem(DeferredCommand& cmd);
+	void HandlePendingChoreographyCmd(AppState& state);
 
 	//PHASE 2 Methods (Direct3D rendering)
 	void RenderLayers(float winW, float winH);
@@ -83,5 +90,6 @@ public:
 	void ProcessDeferredCommands();
 
 	void PlayChoreography(const std::string& filename, float fgFadeOut, float fadeIn, float fadeOut, int idVal, bool loopVid, bool forceCoverOnExit = false);
+	void TransitionTo(float targetPos, std::function<void()> onComplete, float coverfadeIn, float coverfadeOut, int idVal, float fgFadeOut);
 };
 
