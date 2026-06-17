@@ -181,6 +181,9 @@ void PlaybackManager::HandleBackgroundEvents()
 	if (!backgroundTrack || !backgroundTrack->IsActive()) 
 		return;
 
+	if (foregroundActive)
+		return;
+
 	VideoSource* bgSource = backgroundTrack->GetSource();
 	if (!bgSource) 
 		return;
@@ -824,35 +827,39 @@ void PlaybackManager::ProcessDeferredCommands()
 
 				if (foundChoreo > 0)
 				{
-					//If foregroun layer is active (sequences video or simple foreground video), we need to wait until it finishes to fade out 
+					std::string filename = state.choresMap[cmd.choreoID];
 					if (foregroundActive)
 					{
-						//Tells the system that there is a pending choreography command to be processed once the foreground layer is cleared
-						hasPendingChoreographyCmd = true;
-						pendingChoreographyCmd = cmd;
-
-						//If there is an active sequence, stop it to prevent it from advancing to the next item in the sequence
+						// If there is an active sequence, stop it to prevent it from advancing to the next item
 						if (activeSequence && activeSequence->isActive)
 						{
 							activeSequence->Stop();
 						}
 
-						//If the foreground layer is active, start a forced fade-out transition using the specified duration from the command
+						// Start a forced fade-out transition on the foreground track
 						if (foregroundTrack && foregroundTrack->IsActive())
 						{
 							foregroundTrack->StartForcedFadeOut(cmd.fgFadeOutDuration);
 						}
+
+						// CRITICAL CHANGE: We no longer set 'hasPendingChoreographyCmd = true'.
+						// Instead of putting the entire choreography on hold, we let the foreground 
+						// fade out naturally in the background, while we proceed to boot the background video right away.
+						hasPendingChoreographyCmd = false;
 					}
-					//If the foreground layer is not active, we can immediately process the choreography command
 					else
 					{
-						//Tells the system that there is no longer a pending choreography command to be processed
 						hasPendingChoreographyCmd = false;
-						//Gets the filename associated with the choreography ID from the choresMap, which will be used to play the corresponding choreography video.
-						std::string filename = state.choresMap[cmd.choreoID];
-						//Calls the PlayChoreography method to initiate the playback of the choreography video with the specified parameters from the command.
-						PlayChoreography(filename, cmd.fgFadeOutDuration, cmd.fadeInDuration, cmd.fadeOutDuration, cmd.choreoID, cmd.looped, cmd.forceCoverOnExit);
 					}
+
+					PlayChoreography(filename,
+						cmd.fgFadeOutDuration,
+						cmd.fadeInDuration,
+						cmd.fadeOutDuration,
+						cmd.choreoID,
+						cmd.looped,
+						cmd.forceCoverOnExit);
+
 				}
 				
 
