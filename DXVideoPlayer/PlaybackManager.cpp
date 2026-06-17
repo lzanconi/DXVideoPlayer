@@ -181,9 +181,6 @@ void PlaybackManager::HandleBackgroundEvents()
 	if (!backgroundTrack || !backgroundTrack->IsActive()) 
 		return;
 
-	if (foregroundActive)
-		return;
-
 	VideoSource* bgSource = backgroundTrack->GetSource();
 	if (!bgSource) 
 		return;
@@ -393,7 +390,7 @@ void PlaybackManager::HandlePendingSequenceCmd()
 		Sequence* targetSequence = nullptr;	
 		for (auto seq : appInterface->GetAppState().sequences)
 		{
-			if (seq->name == pendingSequenceCmd.filename)
+			if (seq->name == GetFilenameFromPath(pendingSequenceCmd.filename))
 			{
 				targetSequence = seq;
 				break;
