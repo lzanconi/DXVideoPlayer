@@ -924,7 +924,13 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 		//If the loop property loopVid is true, it routes the video to play directly on the background track natively.
 		if (loopVid)
 		{
-			this->PlayTrackOnLayer(filename, this->backgroundTrack, this->backgroundActive, LayerType::Background);
+			DeferredCommand bgCmd;
+			bgCmd.type = NetworkCommandType::PlayBackground;
+			bgCmd.filename = filename;
+			bgCmd.looped = true;
+			bgCmd.fadeInDuration = fadeIn;
+			bgCmd.fadeOutDuration = fadeOut;
+			this->PlayTrackOnLayer(filename, this->backgroundTrack, this->backgroundActive, LayerType::Background, &bgCmd);
 		}
 		else if (coverActive && coverTrack)
 		{
@@ -970,12 +976,12 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 		std::string targetFile = filename;
 
 		// Must undergo smooth motion transition phase through cover asset layer
-		TransitionTo(first_pos, fadeIn, fadeOut, idVal, fgFadeOut);
+		TransitionTo(first_pos, fadeIn, fadeOut, idVal, fgFadeOut, loopVid);
 
 	}
 }
 
-void PlaybackManager::TransitionTo(float targetPos, float coverfadeIn, float coverfadeOut, int idVal, float fgFadeOut)
+void PlaybackManager::TransitionTo(float targetPos, float coverfadeIn, float coverfadeOut, int idVal, float fgFadeOut, bool loop)
 {
 	AppState& state = appInterface->GetAppState();
 	Config& config = appInterface->GetConfig();
@@ -996,7 +1002,7 @@ void PlaybackManager::TransitionTo(float targetPos, float coverfadeIn, float cov
 	//Updates the NetworkManager to make it ready for the Brake-Move-To transition
 	if (state.networkMgr)
 	{
-		state.networkMgr->SetupTransition(targetPos, _coverFadeIn, _coverFadeOut, idVal);
+		state.networkMgr->SetupTransition(targetPos, _coverFadeIn, _coverFadeOut, idVal, loop);
 	}
 
 	state.transitionId = idVal;
