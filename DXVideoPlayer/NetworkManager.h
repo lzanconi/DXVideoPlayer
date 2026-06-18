@@ -30,7 +30,6 @@ private:
 	std::atomic<bool> serverRunning;
 	SOCKET listenSocket = (SOCKET)-1;
 	std::mutex serverSocketMutex;
-	int listenPort = 22345;
 
 	// Configuration for position sending
 	double positions_delay_ms = -130.0;

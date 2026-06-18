@@ -24,6 +24,8 @@ NetworkManager::~NetworkManager()
 
 void NetworkManager::Start()
 {
+    Config config = appInterface->GetConfig();
+
     if (!clientRunning)
     {
         clientRunning = true;
@@ -35,7 +37,7 @@ void NetworkManager::Start()
     {
         serverRunning = true;
         serverThread = std::thread(&NetworkManager::RunServer, this);
-        Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "Start", "Server listener thread started on port " + std::to_string(listenPort) + ".");
+        Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "Start", "Server listener thread started on port " + std::to_string(config.control_port) + ".");
     }
 }
 
@@ -423,6 +425,8 @@ void NetworkManager::PositionSend(SOCKET socket)
 
 void NetworkManager::RunServer()
 {
+    Config config = appInterface->GetConfig();
+
     WSADATA wsaData;
     WSAStartup(MAKEWORD(2, 2), &wsaData);
 
@@ -440,12 +444,12 @@ void NetworkManager::RunServer()
 
         sockaddr_in serverAddr;
         serverAddr.sin_family = AF_INET;
-        serverAddr.sin_port = htons(listenPort);
+        serverAddr.sin_port = htons(config.control_port);
         serverAddr.sin_addr.s_addr = INADDR_ANY;
 
         if (bind(localListenSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
         {
-            Logger::LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "RunServer", "Bind failed on port " + std::to_string(listenPort) + ".");
+            Logger::LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "RunServer", "Bind failed on port " + std::to_string(config.control_port) + ".");
             closesocket(localListenSocket);
             std::this_thread::sleep_for(std::chrono::seconds(2));
             continue;
@@ -458,7 +462,7 @@ void NetworkManager::RunServer()
             continue;
         }
 
-        Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunServer", "Server listening on port " + std::to_string(listenPort) + ".");
+        Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunServer", "Server listening on port " + std::to_string(config.control_port) + ".");
 
         {
             std::lock_guard<std::mutex> lock(serverSocketMutex);
