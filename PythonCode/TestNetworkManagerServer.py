@@ -443,8 +443,18 @@ class JSONSenderApp:
         if fade_in is None or fade_out is None or fg_fade_out is None: return
 
         # Form the dictionary exactly with expected key mapping structures and data types
+        # message_dict = {
+        #     "play_choreography": int(self.choreo_id_var.get()),
+        #     "fade_in_seconds": fade_in,
+        #     "fade_out_seconds": fade_out,
+        #     "fg_fade_out_seconds": fg_fade_out,
+        #     "loop": bool(self.loop_choreo_var.get()),
+        #     "force_cover_on_exit": bool(self.force_cover_choreo_var.get())
+        # }
+
         message_dict = {
-            "play_choreography": int(self.choreo_id_var.get()),
+            "play_choreography": "",
+            "id": int(self.choreo_id_var.get()),
             "fade_in_seconds": fade_in,
             "fade_out_seconds": fade_out,
             "fg_fade_out_seconds": fg_fade_out,
