@@ -3,9 +3,14 @@
 #include <fstream>
 #include <iostream>
 #include "utils.h"
+#include "App.h"
 
 
 using json = nlohmann::json;
+
+ConfigManager::ConfigManager(IApp* appInterface) : appInterface(appInterface)
+{
+}
 
 void ConfigManager::LoadConfig(const fs::path& filePath)
 {
@@ -15,12 +20,12 @@ void ConfigManager::LoadConfig(const fs::path& filePath)
 		const std::string fallback = "config/video-player-config.json";
         if (fs::exists(fallback))
         {
-            std::cout << "Config file '" << filePath.string() << "' not found. Falling back to '" << fallback << "'.\n";
+			appInterface->LogMessage(MESSAGE_TYPE::INFO, "ConfigManager", "LoadConfig", "Config file '" + filePath.string() + "' not found. Falling back to '" + fallback + "'.");
             resolvedFilename = fallback;
         }
         else
         {
-			std::cout << "Config file " << filePath.string() << " not found. Using defaults.\n";
+			appInterface->LogMessage(MESSAGE_TYPE::ERRORS, "ConfigManager", "LoadConfig", "Config file '" + filePath.string() + "' not found, and fallback '" + fallback + "' also not found. Using defaults.");
 			return;
         }
     }
@@ -92,7 +97,7 @@ void ConfigManager::LoadConfig(const fs::path& filePath)
                 }
                 catch (const std::exception& e)
                 {
-                    std::cerr << "Warning: could not resolve autorun_id from choreos config: " << e.what() << "\n";
+					appInterface->LogMessage(MESSAGE_TYPE::ERRORS, "ConfigManager", "LoadConfig", "Could not resolve autorun_id from choreos config: " + std::string(e.what()));
                 }
             }
         }
@@ -154,28 +159,31 @@ void ConfigManager::LoadConfig(const fs::path& filePath)
         if (config.target_ip == "localhost")
             config.target_ip = "127.0.0.1";
 
-        std::cout << "Configuration Loaded:\n";
-        std::cout << "  Choreos Config File: " << config.choreos_config_file << "\n";
-        std::cout << "  Control Server Port: " << config.control_port << "\n";
-        std::cout << "  Target IP: " << config.target_ip << ":" << config.target_port << "\n";
-        std::cout << "  Autorun: " << config.autorun_filename << " (id=" << config.autorun_id << ")\n";
-        std::cout << "  Render delay: " << config.render_delay_ms << "ms\n";
-        std::cout << "  Cover: " << config.cover_filename << "\n";
-        std::cout << "    Reference speed: " << config.cover_reference_speed << " mm/s\n";
-        std::cout << "    Stop acceleration: " << config.cover_stop_acceleration << " mm/s²\n";
-        std::cout << "    Fade in: " << config.cover_fade_in_time << "s\n";
-        std::cout << "    Fade out: " << config.cover_fade_out_time << "s\n";
-        std::cout << "  Positions:\n";
-        std::cout << "    Framerate: " << config.positions_framerate << " fps\n";
-        std::cout << "    Send period: " << config.send_period_ms << "ms\n";
-        std::cout << "    Delay: " << config.positions_delay_ms << "ms\n";
-        std::cout << "    Scale: " << config.positions_scale << "\n";
-        std::cout << "    Offset: " << config.positions_offset << "\n";
+        std::stringstream ss;
+        ss << "Configuration Loaded:\n"
+            << "  Choreos Config File: " << config.choreos_config_file << "\n"
+            << "  Control Server Port: " << config.control_port << "\n"
+            << "  Target IP: " << config.target_ip << ":" << config.target_port << "\n"
+            << "  Autorun: " << config.autorun_filename << " (id=" << config.autorun_id << ")\n"
+            << "  Render delay: " << config.render_delay_ms << "ms\n"
+            << "  Cover: " << config.cover_filename << "\n"
+            << "    Reference speed: " << config.cover_reference_speed << " mm/s\n"
+            << "    Stop acceleration: " << config.cover_stop_acceleration << " mm/s²\n"
+            << "    Fade in: " << config.cover_fade_in_time << "s\n"
+            << "    Fade out: " << config.cover_fade_out_time << "s\n"
+            << "  Positions:\n"
+            << "    Framerate: " << config.positions_framerate << " fps\n"
+            << "    Send period: " << config.send_period_ms << "ms\n"
+            << "    Delay: " << config.positions_delay_ms << "ms\n"
+            << "    Scale: " << config.positions_scale << "\n"
+            << "    Offset: " << config.positions_offset << "\n";
+
+		appInterface->LogMessage(MESSAGE_TYPE::INFO, "ConfigManager", "LoadConfig", ss.str());  
 
     }
     catch (const std::exception& e)
     {
-        std::cerr << "Error parsing config file: " << e.what() << ". Using defaults.\n";
+		appInterface->LogMessage(MESSAGE_TYPE::ERRORS, "ConfigManager", "LoadConfig", "Error parsing config file: " + std::string(e.what()) + ". Using defaults.");
     }
 }
 

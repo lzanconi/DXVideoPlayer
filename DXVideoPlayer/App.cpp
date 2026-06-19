@@ -11,6 +11,7 @@
 #include <json.hpp>
 #include "Sequence.h"
 #include "PlaybackManager.h"
+#include "Logger.h"
 
 using json = nlohmann::json;
 
@@ -19,7 +20,8 @@ AppState App::state;
 
 App::App(int width, int height)
 {
-	configMgr = new ConfigManager();
+	logger = &Logger::GetInstance();
+	configMgr = new ConfigManager(this);
 	configMgr->LoadConfig(".\\conf.json"); 
 
     contentMgr = new ContentManager(this);
@@ -143,6 +145,11 @@ void App::SendTCPMessage(const std::string& message)
             std::cerr << "App::HandleCommand failed to send response back to client." << std::endl;
         }
     }
+}
+
+void App::LogMessage(MESSAGE_TYPE type, const std::string& className, const std::string& methodName, const std::string& message)
+{
+	return logger->GetInstance().LogMessage(type, className, methodName, message);
 }
 
 VideoSource* App::GetBackgroundVideo()

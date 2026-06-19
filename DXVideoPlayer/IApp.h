@@ -27,4 +27,5 @@ public:
     virtual void SetClientSocket(int socket) = 0;
     virtual void HandleNetworkCommand(const std::string& jsonStr) = 0;
 	virtual void SendTCPMessage(const std::string& message) = 0;
+	virtual void LogMessage(MESSAGE_TYPE type, const std::string& className = "", const std::string& methodName = "", const std::string& message = "") = 0;
 };
