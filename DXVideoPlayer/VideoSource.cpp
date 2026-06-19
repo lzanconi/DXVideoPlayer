@@ -3,7 +3,9 @@
 #include <d3d11.h>
 #include <chrono>
 #include <iostream>
+#include <string>
 #include "utils.h"
+#include "Logger.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -37,8 +39,7 @@ bool VideoSource::OpenFile(const std::string& path, ID3D11Device* device, ID3D11
     //Opens the video file and reads the header to understand the container format
     if (avformat_open_input(&fmtCtx, path.c_str(), nullptr, nullptr) < 0)
     {
-        std::wstring message = L"Failed to open video file: " + stringToWS(path);
-        MessageBox(nullptr, message.c_str(), L"Error", MB_ICONERROR);
+        Logger::LogMessage(MESSAGE_TYPE::INFO, "Sequence", "Play", "VIDEO: Failed to open video file " + path);
         return false;
     }
 
@@ -54,8 +55,7 @@ bool VideoSource::OpenFile(const std::string& path, ID3D11Device* device, ID3D11
     const AVCodec* codec = avcodec_find_decoder(fmtCtx->streams[streamIdx]->codecpar->codec_id);
     if (!codec)
     {
-        std::wstring message = L"Unsupported video codec: " + stringToWS(avcodec_get_name(fmtCtx->streams[streamIdx]->codecpar->codec_id));
-        MessageBox(nullptr, message.c_str(), L"Error", MB_ICONERROR);
+        Logger::LogMessage(MESSAGE_TYPE::ERRORS, "VideoSource", "OpenFile", "VIDEO: Unsupported video codec " + std::string(avcodec_get_name(fmtCtx->streams[streamIdx]->codecpar->codec_id)));
         return false;
     }
 
@@ -95,7 +95,7 @@ bool VideoSource::OpenFile(const std::string& path, ID3D11Device* device, ID3D11
     //Initializes the decoder context with the specified codec. Returns false if the decoder cannot be opened.
     if (avcodec_open2(decCtx, codec, nullptr) < 0)
     {
-        MessageBox(nullptr, L"Failed to initialize decoder context!", L"Error", MB_ICONERROR);
+		Logger::LogMessage(MESSAGE_TYPE::ERRORS, "VideoSource", "OpenFile", "VIDEO: Failed to initialize decoder context for codec " + std::string(avcodec_get_name(fmtCtx->streams[streamIdx]->codecpar->codec_id)));
         return false;
     }
 

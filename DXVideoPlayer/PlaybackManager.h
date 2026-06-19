@@ -74,7 +74,6 @@ public:
 	void HandleSequenceShutdown();
 	void HandlePendingCoverCmd(AppState& state);
 	void HandlePendingSequenceCmd();
-	void PlayTrackOnLayerIndex(int videoSourceIdx, std::unique_ptr<VideoTrack>& targetTrack, bool& targetActiveFlag, const LayerType& layerType, DeferredCommand* cmd = nullptr);
 	void PlayTrackOnLayer(const std::string& videoName, std::unique_ptr<VideoTrack>& targetTrack, bool& targetActiveFlag, const LayerType& layerType, DeferredCommand* cmd = nullptr);
 	void PlaySequenceItem(DeferredCommand& cmd);
 	void HandlePendingChoreographyCmd(AppState& state);

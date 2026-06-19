@@ -8,6 +8,7 @@
 #include "customtypes.h"
 #include "Sequence.h"
 #include <json.hpp>
+#include "Logger.h"
 
 using json = nlohmann::json;
 namespace fs = std::filesystem;
@@ -32,8 +33,7 @@ void ContentManager::LoadVideoContentsFromConfig()
 
     if (!fs::exists(choreosConfigFile))
     {
-		errorMsg = "[ERROR ContentManager->LoadVideoContentsFromConfig] Choreography config file " + choreosConfigFile + " not found!";
-        std::cerr << errorMsg << std::endl;
+        Logger::LogMessage(MESSAGE_TYPE::ERRORS, "ContentManager", "LoadVideoContentsFromConfig", "Choreography config file " + choreosConfigFile + " not found!");
         return;
     }
 
@@ -47,15 +47,13 @@ void ContentManager::LoadVideoContentsFromConfig()
     }
     catch (const std::exception& e)
     {
-		errorMsg = "[ERROR ContentManager->LoadVideoContentsFromConfig] Error parsing choreos config file " + choreosConfigFile + ": " + e.what();
-        std::cerr << errorMsg << std::endl;
+		Logger::LogMessage(MESSAGE_TYPE::ERRORS, "ContentManager", "LoadVideoContentsFromConfig", "Error parsing choreos config file " + choreosConfigFile + ": " + e.what());    
         return;
     }
 
     if (!j.contains("choreographies") || !j["choreographies"].is_array())
     {
-        errorMsg = "[WARNING ContentManager->LoadVideoContentsFromConfig] No 'choreographies' array in choreos config file: " + choreosConfigFile;
-        std::cerr << errorMsg << std::endl;
+		Logger::LogMessage(MESSAGE_TYPE::INFO, "ContentManager", "LoadVideoContentsFromConfig", "No 'choreographies' array in choreos config file: " + choreosConfigFile);
         return;
     }
 
@@ -255,8 +253,7 @@ void ContentManager::LoadSequences(const std::string& folderPath, PlaybackManage
             if (filename.find("sequence") != std::string::npos)
             {
                 sequencePath = entry.path().string();
-				std::string infoMsg = "[INFO ConfigManager->LoadSequences] Found sequence file " + sequencePath;
-                std::cout << infoMsg << std::endl;
+				Logger::LogMessage(MESSAGE_TYPE::INFO, "ContentManager", "LoadSequences", "Found sequence file " + sequencePath);
                 std::string seqFilename = GetFilenameFromPath(sequencePath);
 
                 std::vector<SequenceItem> sequenceItems;
@@ -272,15 +269,13 @@ void ContentManager::LoadSequences(const std::string& folderPath, PlaybackManage
 
 void ContentManager::ParseSequenceFile(const std::string& filePath, std::vector<SequenceItem>& outItems)
 {
-	std::string infoMsg = "[INFO ContentManager->ParseSequenceFile] Parsing sequence file " + filePath;
-    std::cout << infoMsg << std::endl;
+	Logger::LogMessage(MESSAGE_TYPE::INFO, "ContentManager", "ParseSequenceFile", "Parsing sequence file " + filePath);
 
     // Attempts to open the sequence definition text file at the provided file path.
     std::ifstream file(filePath);
     if (!file.is_open())
     {
-		std::string errorMsg = "[ERROR ContentManager->ParseSequenceFile] Failed to open sequence file " + filePath;
-        std::cerr << errorMsg << std::endl;
+        Logger::LogMessage(MESSAGE_TYPE::ERRORS, "ContentManager", "ParseSequenceFile", "Failed to open sequence file " + filePath);
         return;
     }
 

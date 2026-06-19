@@ -218,8 +218,7 @@ void PlaybackManager::HandleBackgroundEvents()
 					cmd.fadeOutDuration = evt.fadeOutDuration;
 					cmd.looped = false;
 
-					std::cout << "[Timeline Event] Firing automated sequence file: " << evt.filename
-						<< " at background playhead pos: " << backgroundPTS << "s" << std::endl;
+					Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "HandleBackgroundEvents", "Firing automated sequence file: " + evt.filename + " at background playhead pos: " + std::to_string(backgroundPTS) + "s");
 
 					EnqueueNetworkCommand(cmd);
 				}
@@ -275,8 +274,7 @@ void PlaybackManager::HandleBackgroundEvents()
 
 					if (fgSource->internalPTS >= evt.duration && !fgSource->isFadingOut)
 					{
-						std::cout << "[Timeline Event] Duration reached for " << evt.filename
-							<< ". Injecting automatic fade out." << std::endl;
+						Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "HandleBackgroundEvents", "Duration threshold reached for foreground video: " + evt.filename + ". Injecting automatic fade out.");
 						foregroundTrack->StartForcedFadeOut(evt.fadeOutDuration);
 					}
 				}
@@ -306,8 +304,7 @@ void PlaybackManager::HandleBackgroundEvents()
 				//If it's more >= than the event duration...
 				if (elapsedSequenceTime >= evt.duration)
 				{
-					std::cout << "[Timeline Event] Duration threshold reached for active sequence: " << activeSequence->name
-						<< ". Killing running foreground channels." << std::endl;
+					Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "HandleBackgroundEvents", "Duration threshold reached for active sequence: " + activeSequence->name + ". Killing running foreground channels.");
 
 					//Halts the active sequence advancement, deactivates sequence flags and triggers a clean fade out (if set) on current 
 					//sequence video that is playing
@@ -440,56 +437,6 @@ void PlaybackManager::HandlePendingChoreographyCmd(AppState& state)
 	}
 }
 
-void PlaybackManager::PlayTrackOnLayerIndex(int videoSourceIdx, std::unique_ptr<VideoTrack>& targetTrack, bool& targetActiveFlag, const LayerType& layerType, DeferredCommand* cmd)
-{
-	AppState& state = appInterface->GetAppState();
-
-	if (videoSourceIdx < 0 || videoSourceIdx >= static_cast<int>(state.sources.size()))
-	{
-		std::cerr << "Invalid video source index for " << LayerTypeToStr(layerType) << ": " << videoSourceIdx << std::endl;
-		return;
-	}
-
-	std::cout << "[Main Thread] Swapping " << LayerTypeToStr(layerType) << " layer video to index: "
-		<< videoSourceIdx << " (" << state.sources[videoSourceIdx]->filename << ")" << std::endl;
-
-	//Update the video source properties based on the command parameters if provided
-	if (cmd)
-	{
-		state.sources[videoSourceIdx]->fadeInDuration = cmd->fadeInDuration;
-		state.sources[videoSourceIdx]->fadeOutDuration = cmd->fadeOutDuration;
-		state.sources[videoSourceIdx]->looped = cmd->looped;
-	}
-
-	//Set initial alpha to 0 for fade-in effect
-	state.sources[videoSourceIdx]->alpha = 0.0f;
-
-	// Dynamically update the passed track unique_ptr pointer structure
-	targetTrack = std::make_unique<VideoTrack>(state.sources[videoSourceIdx]);
-	targetTrack->SetBlending(true);
-	targetTrack->Rewind();
-	targetTrack->Play(GetTimeStd());
-
-	// Force wrapper synchronization status explicitly
-	targetTrack->SetActive(true);
-
-	// Bootstrap first frame mapping context
-	ID3D11DeviceContext* ctx = renderer->GetContext();
-	state.sources[videoSourceIdx]->GetNextFrame(ctx);
-
-	if (state.sources[videoSourceIdx]->isFadingIn)
-	{
-		state.sources[videoSourceIdx]->ComputeFadeIn();
-	}
-	else if (state.sources[videoSourceIdx]->fadeInDuration > 0.0f)
-	{
-		state.sources[videoSourceIdx]->alpha = 0.0f;
-	}
-
-	// Toggle the specific layer visibility state flag on
-	targetActiveFlag = true;
-}
-
 void PlaybackManager::PlayTrackOnLayer(const std::string& videoName, std::unique_ptr<VideoTrack>& targetTrack, bool& targetActiveFlag, const LayerType& layerType, DeferredCommand* cmd)
 {
 	AppState& state = appInterface->GetAppState();
@@ -544,11 +491,9 @@ void PlaybackManager::PlayTrackOnLayer(const std::string& videoName, std::unique
 void PlaybackManager::PlaySequenceItem(DeferredCommand& cmd)
 {
 	AppState& state = appInterface->GetAppState();
-	//int matchIdx = FindVideoSourceIndexByFilename(cmd.filename, state.sources);
 	int foundVideo = state.sourcesMap.count(GetFilenameFromPath(cmd.filename));
 	if (foundVideo)
 	{
-		//PlayTrackOnLayerIndex(matchIdx, foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
 		PlayTrackOnLayer(GetFilenameFromPath(cmd.filename), foregroundTrack, foregroundActive, LayerType::Foreground, &cmd);
 	}
 }
@@ -656,22 +601,21 @@ void PlaybackManager::ProcessDeferredCommands()
 		{
 			case NetworkCommandType::Stop:
 			{
-				std::cout << ">>> [PlaybackManager] Processing deferred 'stop' action." << std::endl;
-				//ForceStopBackgroundLayer(1.0f);
+				Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "ProcessDeferredCommands", "Processing deferred 'stop' action");
 				ForceStopForegroundLayers(1.0f);
 				break;
 			}
 
 			case NetworkCommandType::PlayBackground:
 			{
-				std::cout << "[PlaybackManager] Processing deferred 'play_background': " << cmd.filename << std::endl;
+				Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "ProcessDeferredCommands", "Processing deferred 'play_background': " + cmd.filename);
 				int foundVideo = state.sourcesMap.count(cmd.filename);
 
 				if (foundVideo > 0)
 				{
 					if (foregroundActive && foregroundTrack && foregroundTrack->IsActive())
 					{
-						std::cout << "[PlaybackManager] Background event video active on foreground layer. Forcing fade out." << std::endl;
+						Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "ProcessDeferredCommands", "Background event video active on foreground layer. Forcing fade out.");
 						foregroundTrack->StartForcedFadeOut(cmd.fadeOutDuration);
 					}
 
@@ -699,7 +643,7 @@ void PlaybackManager::ProcessDeferredCommands()
 
 			case NetworkCommandType::PlayForeground:
 			{
-				std::cout << "[PlaybackManager] Processing deferred 'play_foreground': " << cmd.filename << std::endl;
+				Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "ProcessDeferredCommands", "Processing deferred 'play_foreground': " + cmd.filename);
 				int foundVideo = state.sourcesMap.count(cmd.filename);
 
 				if (foundVideo > 0)
@@ -728,7 +672,7 @@ void PlaybackManager::ProcessDeferredCommands()
 			}
 			case NetworkCommandType::PlaySequence:
 			{
-				std::cout << "[PlaybackManager] Processing deferred 'play_sequence': " << cmd.filename << std::endl;
+				Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "ProcessDeferredCommands", "Processing deferred 'play_sequence': " + cmd.filename);
 
 				Sequence* targetSequence = nullptr;	
 				//Find the sequence matching the command filename
@@ -743,13 +687,13 @@ void PlaybackManager::ProcessDeferredCommands()
 
 				if (!targetSequence)
 				{
-					std::cerr << "[Main Thread] Error: Requested sequence file not found: " << cmd.filename << std::endl;
+					Logger::LogMessage(MESSAGE_TYPE::ERRORS, "PlaybackManager", "ProcessDeferredCommands", "Requested sequence file not found: " + cmd.filename);
 					break;
 				}
 
 				if (foregroundActive)
 				{
-					std::cout << "[PlaybackManager] Foreground busy. Buffering sequence, forcing fade out." << std::endl;
+					Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "ProcessDeferredCommands", "Foreground busy. Buffering sequence, forcing fade out.");
 
 					pendingSequenceCmd = cmd;
 					hasPendingSequenceCmd = true;
@@ -783,7 +727,7 @@ void PlaybackManager::ProcessDeferredCommands()
 			}
 			case NetworkCommandType::PlayCover:
 			{
-				std::cout << "[PlaybackManager] Processing deferred 'play_cover': " << cmd.filename << std::endl;
+				Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "ProcessDeferredCommands", "Processing deferred 'play_cover': " + cmd.filename);
 				int foundVideo = state.sourcesMap.count(cmd.filename);
 				if (foundVideo > 0)
 				{
@@ -795,7 +739,6 @@ void PlaybackManager::ProcessDeferredCommands()
 					}
 					else
 					{
-						//PlayTrackOnLayerIndex(matchIdx, coverTrack, coverActive, LayerType::Cover, &cmd);
 						PlayTrackOnLayer(cmd.filename, coverTrack, coverActive, LayerType::Cover, &cmd);	
 					}
 				}
@@ -804,7 +747,7 @@ void PlaybackManager::ProcessDeferredCommands()
 
 			case NetworkCommandType::HideCover:
 			{
-				std::cout << ">>> [PlaybackManager] Processing deferred 'hide_cover' action." << std::endl;
+				Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "ProcessDeferredCommands", "Processing deferred 'hide_cover' action.");
 
 				// Clear any pending commands queued to start a new cover video
 				hasPendingCoverCmd = false;

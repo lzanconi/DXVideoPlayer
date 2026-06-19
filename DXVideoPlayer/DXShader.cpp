@@ -2,6 +2,7 @@
 #include <iostream>
 #include <d3dcompiler.h>
 #include <wrl/client.h>
+#include "Logger.h"
 
 DXShader::~DXShader() {
 	if (vs) 
@@ -41,7 +42,7 @@ bool DXShader::CompileVertexShader(ID3D11Device* device, const std::wstring& fil
 
     if (FAILED(hr))
     {
-        std::cerr << "Failed to create vertex shader from file: " << filename.c_str() << std::endl;
+		Logger::LogMessage(MESSAGE_TYPE::ERRORS, "DXShader", "CompileVertexShader", "Failed to create vertex shader from file " + std::string(filename.begin(), filename.end()));
         return false;
     }
 
@@ -55,7 +56,7 @@ bool DXShader::CompileVertexShader(ID3D11Device* device, const std::wstring& fil
 
     if (FAILED(hr))
     {
-        std::cerr << "Failed to create input layout from file: " << filename.c_str() << std::endl;
+		Logger::LogMessage(MESSAGE_TYPE::ERRORS, "DXShader", "CompileVertexShader", "Failed to create input layout from file " + std::string(filename.begin(), filename.end()));
         return false;
     }
 
@@ -87,10 +88,10 @@ void DXShader::OutputCompileErrors(ID3DBlob* errorBlob, const std::wstring& file
     if (errorBlob)
     {
         char* compileErrors = (char*)(errorBlob->GetBufferPointer());
-        std::wcerr << "Error compiling " << shaderType.c_str() << " shader from file " << filename.c_str() << ":\n" << compileErrors << std::endl;
+		Logger::LogMessage(MESSAGE_TYPE::ERRORS, "DXShader", "OutputCompileErrors", "Error compiling " + std::string(shaderType.begin(), shaderType.end()) + " shader from file " + std::string(filename.begin(), filename.end()) + ":\n" + std::string(compileErrors));
     }
     else
     {
-        std::wcerr << "Could not find or open shader file: " << filename.c_str() << std::endl;
+		Logger::LogMessage(MESSAGE_TYPE::ERRORS, "DXShader", "OutputCompileErrors", "Could not find or open shader file " + std::string(filename.begin(), filename.end()));
     }
 }
