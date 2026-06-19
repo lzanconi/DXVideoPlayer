@@ -966,7 +966,7 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 
 			// Force a fade-out transition using the requested timing parameter
 			//float coverFadeOut = (fadeOut == 0.0f) ? config.cover_fade_out_time : fadeOut;
-			float coverFadeOut = (fadeOut >= 0.0f) ? fadeOut : config.cover_fade_out_time;
+			float coverFadeOut = (fadeOut > 0.0f) ? fadeOut : config.cover_fade_out_time;
 			coverTrack->StartForcedFadeOut(coverFadeOut);
 		}
 	}
@@ -996,8 +996,8 @@ void PlaybackManager::TransitionTo(float targetPos, float coverfadeIn, float cov
 
 	//Determines the cover fade-in and fade-out durations to be used for this transition. 
 	//If the incoming parameters are set to a non-negative value, it uses those values; otherwise, it falls back to the default durations specified in the configuration.
-	float _coverFadeIn = (coverfadeIn >= 0.0f) ? coverfadeIn : config.cover_fade_in_time;
-	float _coverFadeOut = (coverfadeOut >= 0.0f) ? coverfadeOut : config.cover_fade_out_time;
+	float _coverFadeIn = (coverfadeIn > 0.0f) ? coverfadeIn : config.cover_fade_in_time;
+	float _coverFadeOut = (coverfadeOut > 0.0f) ? coverfadeOut : config.cover_fade_out_time;
 
 	//Updates the NetworkManager to make it ready for the Brake-Move-To transition
 	if (state.networkMgr)
