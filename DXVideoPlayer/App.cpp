@@ -366,6 +366,7 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
 		//PLAY CHOREOGRAPHY COMMAND:
         if (j.contains("play_choreography"))
         {
+            std::string cmdStr = j.dump();
             cmd.type = NetworkCommandType::PlayChoreography;
 			cmd.filename = j["play_choreography"].get<std::string>();
 
