@@ -106,6 +106,12 @@ enum class LayerType
     Cover
 };
 
+enum class MESSAGE_TYPE
+{
+    INFO,
+    ERRORS
+};
+
 //Struct to represent a deferred network command, containing the command type and any associated data (e.g., filename for PlayForeground)
 struct DeferredCommand
 {
