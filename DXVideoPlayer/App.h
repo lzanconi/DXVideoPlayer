@@ -49,7 +49,6 @@ public:
 	~App();
 
 	void Run();
-	void SendTCPMessage(const std::string& message);
 	
 
 	VideoSource* GetBackgroundVideo() override;
@@ -67,6 +66,7 @@ public:
 	int GetTransitionId() override;
 	void SetClientSocket(int socket) override;
 	void HandleNetworkCommand(const std::string& jsonStr) override;
+	void SendTCPMessage(const std::string& message) override;	
 
 private:
 	void LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context);
