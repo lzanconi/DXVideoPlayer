@@ -30,14 +30,14 @@ void NetworkManager::Start()
     {
         clientRunning = true;
         clientThread = std::thread(&NetworkManager::RunClient, this);
-		appInterface->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "Start", "CLIENT: Client background thread started");   
+        Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "Start", "Client background thread started.");
     }
 
     if (!serverRunning)
     {
         serverRunning = true;
         serverThread = std::thread(&NetworkManager::RunServer, this);
-		appInterface->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "Start", "SERVER: Server listener thread started on port " + std::to_string(config.control_port));
+        Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "Start", "Server listener thread started on port " + std::to_string(config.control_port) + ".");
     }
 }
 
@@ -79,7 +79,7 @@ void NetworkManager::Stop()
         serverThread.join();
     }
 
-	appInterface->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "Stop", "All background threads stopped cleanly");
+    Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "Stop", "All background threads stopped cleanly.");
 }
 
 /*
@@ -140,7 +140,7 @@ void NetworkManager::RunClient()
         serverAddr.sin_port = htons(config.target_port);
         inet_pton(AF_INET, config.target_ip.c_str(), &serverAddr.sin_addr);
 
-        appInterface->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunClient", "CLIENT: Attempting to connect to server at " + config.target_ip + ":" + std::to_string(config.target_port) + "...");
+        Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunClient", "Attempting to connect to server at " + config.target_ip + ":" + std::to_string(config.target_port) + "...");
 
         if (connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
         {
@@ -154,7 +154,7 @@ void NetworkManager::RunClient()
             continue;
         }
 
-		appInterface->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunClient", "CLIENT: Client connected to PositionServer");
+        Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunClient", "Client connected to Position Server.");
 
         PositionSend(clientSocket);
 
@@ -346,7 +346,8 @@ void NetworkManager::PositionSend(SOCKET socket)
                 {
                     percentage = 1.0;
                     this->transition_mode_active = false;
-					
+                    Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "PositionSend", "Transition complete at position: " + std::to_string(transition_target_position));
+
                     int transitionId = appInterface->GetTransitionId();
                     if (transitionId >= 0)
                     {
@@ -365,14 +366,8 @@ void NetworkManager::PositionSend(SOCKET socket)
                             "\"force_cover_on_exit\":%s,\"id\":%d,\"loop\":%s,\"play_choreography\":\"%s\"}",
                             transitionFadeIn, transitionFadeOut, transitionFgFadeOut,
                             transitionforceCoverOnExit ? "true" : "false", transitionId, transitionLoop ? "true" : "false", "");
-                        
-                        std::stringstream ss;
-                        ss << "TRANSITION PHASE: Transition complete at position: " << transition_target_position << "\n"
-							<< "Sending choreography command: " << std::string(status_buf);
 
-                        appInterface->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "PositionSend", ss.str());
-
-                        
+                        std::string test(status_buf);
                         appInterface->HandleNetworkCommand(std::string(status_buf));
                     }
                 }
@@ -414,7 +409,7 @@ void NetworkManager::PositionSend(SOCKET socket)
         {
             if (last_known_position == appInterface->GetTransitionPosition() && !sequence_triggered)
             {
-				appInterface->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "PositionSend", "COVER: Cover frame transition finished at position: " + std::to_string(last_known_position));
+                Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "PositionSend", "Cover frame transition finished at position: " + std::to_string(last_known_position));
                 sequence_triggered = true;
             }
         }
@@ -424,7 +419,7 @@ void NetworkManager::PositionSend(SOCKET socket)
         {
             if (send(socket, msg_buffer, len + 1, 0) == -1)
             {
-				appInterface->LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "PositionSend", "Lost synchronization stream connection link channel.");
+                Logger::LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "PositionSend", "Lost synchronization stream connection link channel.");
                 break;
             }
         }
@@ -463,8 +458,7 @@ void NetworkManager::RunServer()
 
         if (bind(localListenSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
         {
-            //Logger::LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "RunServer", "Bind failed on port " + std::to_string(config.control_port) + ".");
-			appInterface->LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "RunServer", "SERVER: Server failed to bind on port " + std::to_string(config.control_port) + ". Error: " + std::to_string(WSAGetLastError()));
+            Logger::LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "RunServer", "Bind failed on port " + std::to_string(config.control_port) + ".");
             closesocket(localListenSocket);
             std::this_thread::sleep_for(std::chrono::seconds(2));
             continue;
@@ -477,8 +471,7 @@ void NetworkManager::RunServer()
             continue;
         }
 
-        //Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunServer", "Server listening on port " + std::to_string(config.control_port) + ".");
-		appInterface->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunServer", "SERVER: Server listening on port " + std::to_string(config.control_port));
+        Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunServer", "Server listening on port " + std::to_string(config.control_port) + ".");
 
         {
             std::lock_guard<std::mutex> lock(serverSocketMutex);
@@ -508,7 +501,7 @@ void NetworkManager::RunServer()
             char clientIPStr[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &clientAddr.sin_addr, clientIPStr, INET_ADDRSTRLEN);
 
-			appInterface->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunServer", "SERVER: New client connected from " + std::string(clientIPStr));
+            Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunServer", "New client connected from: " + std::string(clientIPStr));
 
             appInterface->SetClientSocket(inboundClient);
 
@@ -543,7 +536,7 @@ void NetworkManager::HandleIncomingConnection(SOCKET clientSocket)
         }
         else if (bytesReceived == 0)
         {
-			appInterface->LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "HandleIncomingConnection", "CLIENT: Client disconnected gracefully");
+            Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "HandleIncomingConnection", "Client disconnected gracefully.");
             break;
         }
         else
@@ -553,8 +546,7 @@ void NetworkManager::HandleIncomingConnection(SOCKET clientSocket)
             {
                 continue;
             }
-
-			appInterface->LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "HandleIncomingConnection", "CLIENT: Connection lost. Error code: " + std::to_string(err));
+            Logger::LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "HandleIncomingConnection", "Client connection lost abruptly.");
             break;
         }
     }

@@ -41,8 +41,7 @@ bool DXShader::CompileVertexShader(ID3D11Device* device, const std::wstring& fil
 
     if (FAILED(hr))
     {
-        std::cerr << RED << "[SHADER ERROR]: Failed to create vertex shader from file: " << filename.c_str() << RESET << std::endl;
-        
+        std::cerr << "Failed to create vertex shader from file: " << filename.c_str() << std::endl;
         return false;
     }
 
@@ -56,7 +55,7 @@ bool DXShader::CompileVertexShader(ID3D11Device* device, const std::wstring& fil
 
     if (FAILED(hr))
     {
-        std::cerr << RED << "[SHADER ERROR]: Failed to create input layout from file: " << filename.c_str() << std::endl;
+        std::cerr << "Failed to create input layout from file: " << filename.c_str() << std::endl;
         return false;
     }
 
@@ -88,10 +87,10 @@ void DXShader::OutputCompileErrors(ID3DBlob* errorBlob, const std::wstring& file
     if (errorBlob)
     {
         char* compileErrors = (char*)(errorBlob->GetBufferPointer());
-     	std::cerr << RED << "[SHADER COMPILE ERROR]: Failed to compile " << std::string(shaderType.begin(), shaderType.end()) << " from file: " << std::string(filename.begin(), filename.end()) << "\n" << compileErrors << RESET << std::endl;
+        std::wcerr << "Error compiling " << shaderType.c_str() << " shader from file " << filename.c_str() << ":\n" << compileErrors << std::endl;
     }
     else
     {
-		std::cerr << RED << "[SHADER ERROR]: Could not find or open shader file: " << std::string(filename.begin(), filename.end()) << RESET << std::endl;
+        std::wcerr << "Could not find or open shader file: " << filename.c_str() << std::endl;
     }
 }

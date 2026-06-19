@@ -15,7 +15,6 @@ class NetworkManager;
 class PlaybackManager;
 class ConfigManager;	
 class Sequence;
-class Logger;
 struct AVBufferRef;
 struct AVPacket;
 struct AVFrame;
@@ -35,7 +34,6 @@ private:
 	ConfigManager* configMgr = nullptr;	
 	IRenderer* renderer = nullptr;
 	DXShader* videoShader = nullptr;
-	Logger* logger = nullptr;
 	AVBufferRef* hw_ctx;
 	AVPacket* raw_packet;
 	AVFrame* frame;
@@ -69,7 +67,6 @@ public:
 	void SetClientSocket(int socket) override;
 	void HandleNetworkCommand(const std::string& jsonStr) override;
 	void SendTCPMessage(const std::string& message) override;	
-	void LogMessage(MESSAGE_TYPE type, const std::string& className = "", const std::string& methodName = "", const std::string& message = "") override;
 
 private:
 	void LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context);

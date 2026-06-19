@@ -11,7 +11,6 @@
 #include <json.hpp>
 #include "Sequence.h"
 #include "PlaybackManager.h"
-#include "Logger.h"
 
 using json = nlohmann::json;
 
@@ -20,8 +19,7 @@ AppState App::state;
 
 App::App(int width, int height)
 {
-	logger = &Logger::GetInstance();
-	configMgr = new ConfigManager(this);
+	configMgr = new ConfigManager();
 	configMgr->LoadConfig(".\\conf.json"); 
 
     contentMgr = new ContentManager(this);
@@ -29,7 +27,8 @@ App::App(int width, int height)
 
     if (contentMgr->GetVideoContentsMap().empty())
     {
-		LogMessage(MESSAGE_TYPE::ERRORS, "App", "App", "No .mp4 files found in the Videos folder.");
+        /*std::cerr << "No .mp4 files found." << std::endl;*/
+		MessageBoxA(nullptr, "No .mp4 files found in the Videos folder.", "Error", MB_ICONERROR);
     }
 
     wndClass.lpfnWndProc = WndProc; 
@@ -141,14 +140,9 @@ void App::SendTCPMessage(const std::string& message)
         int bytesSent = send(static_cast<SOCKET>(clientSocket), message.c_str(), static_cast<int>(message.length()), 0);
         if (bytesSent == -1)
         {
-			LogMessage(MESSAGE_TYPE::ERRORS, "App", "SendTCPMessage", "Failed to send response back to client.");
+            std::cerr << "App::HandleCommand failed to send response back to client." << std::endl;
         }
     }
-}
-
-void App::LogMessage(MESSAGE_TYPE type, const std::string& className, const std::string& methodName, const std::string& message)
-{
-	return logger->GetInstance().LogMessage(type, className, methodName, message);
 }
 
 VideoSource* App::GetBackgroundVideo()
@@ -409,7 +403,7 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
     }
     catch (const std::exception& ex)
     {
-		LogMessage(MESSAGE_TYPE::ERRORS, "App", "HandleNetworkCommand", "Error handling network command: " + std::string(ex.what()));
+        std::cerr << "Error handling network command: " << ex.what() << std::endl;
 	}
 }
 
@@ -432,23 +426,20 @@ void App::LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context)
         }
         else
         {
-			LogMessage(MESSAGE_TYPE::ERRORS, "App", "LoadVideoSources", "Failed to open video: " + filename);
+            std::cerr << "[ERROR App] Failed to open video: " << filename << std::endl;
         }
 
         
     }
 
 	int numSources = state.sourcesMap.size();
-    
-    std::stringstream ss;
-	ss << "Video sources loaded: " << numSources;
-
+    std::string infoMsg = "[INFO App->LoadVideoSources]  Video sources loaded: " + std::to_string(numSources);
+    std::cout << infoMsg << std::endl;
     for (const auto& source : state.sourcesMap)
     {
-    	ss << "\n     VideoSource: " << source.second->filename << " / Duration: " << GetDurationMinSec(static_cast<int>(source.second->duration));
+        infoMsg = "     VideoSource: " + source.second->filename + " / Duration: " + GetDurationMinSec(static_cast<int>(source.second->duration));
+        std::cout << infoMsg << std::endl;
     }
-
-	LogMessage(MESSAGE_TYPE::INFO, "App", "LoadVideoSources", ss.str());
 }
 
 LRESULT App::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)

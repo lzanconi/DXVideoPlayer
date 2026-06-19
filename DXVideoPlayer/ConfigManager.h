@@ -4,16 +4,13 @@
 
 namespace fs = std::filesystem;
 
-class IApp;
-
 class ConfigManager
 {
 public:
 	Config config;
-	IApp* appInterface;
 
 public:
-	ConfigManager(IApp* appInterface);
+	ConfigManager() = default;
 	~ConfigManager() = default;
 
 	void LoadConfig(const fs::path& filePath);
