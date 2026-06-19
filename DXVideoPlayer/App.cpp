@@ -367,8 +367,11 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
         if (j.contains("play_choreography"))
         {
             cmd.type = NetworkCommandType::PlayChoreography;
-			cmd.choreoID = j["play_choreography"].get<int>();
+			cmd.filename = j["play_choreography"].get<std::string>();
 
+            if (j.contains("id")) {
+                cmd.choreoID = j["id"].get<int>();
+			}
             if (j.contains("fade_in_seconds")) {
                 cmd.fadeInDuration = j["fade_in_seconds"].get<float>();
 			}

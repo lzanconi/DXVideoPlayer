@@ -350,15 +350,16 @@ void NetworkManager::PositionSend(SOCKET socket)
                     if (transitionId >= 0)
                     {
                         char status_buf[256];
-                        //snprintf(status_buf, sizeof(status_buf), "{\"play_choreography\":%d,\"loop\":false,\"fade_in_seconds\":1.0}", transitionId);
+
                         /*snprintf(status_buf, sizeof(status_buf),
-                            "{\"play_choreography\":%d,\"loop\":false,\"fade_in_seconds\":%.3f,\"fade_out_seconds\":%.3f}",
-                            transitionId, this->transitionFadeIn, this->transitionFadeOut);*/
+                            "{\"play_choreography\":%d,\"loop\":%s,\"fade_in_seconds\":%.3f,\"fade_out_seconds\":%.3f}",
+                            transitionId, this->transitionLoop ? "true" : "false", this->transitionFadeIn, this->transitionFadeOut);*/
 
                         snprintf(status_buf, sizeof(status_buf),
-                            "{\"play_choreography\":%d,\"loop\":%s,\"fade_in_seconds\":%.3f,\"fade_out_seconds\":%.3f}",
-                            transitionId, this->transitionLoop ? "true" : "false", this->transitionFadeIn, this->transitionFadeOut);
+                            "{\"play_choreography\":\"%s\",\"id\":%d,\"loop\":%s,\"fade_in_seconds\":%.3f,\"fade_out_seconds\":%.3f}",
+                            "", transitionId, transitionLoop ? "true" : "false", transitionFadeIn, transitionFadeOut);
 
+                        std::string test(status_buf);
                         appInterface->HandleNetworkCommand(std::string(status_buf));
                     }
                 }
