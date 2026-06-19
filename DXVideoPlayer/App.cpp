@@ -29,8 +29,7 @@ App::App(int width, int height)
 
     if (contentMgr->GetVideoContentsMap().empty())
     {
-        /*std::cerr << "No .mp4 files found." << std::endl;*/
-		MessageBoxA(nullptr, "No .mp4 files found in the Videos folder.", "Error", MB_ICONERROR);
+		LogMessage(MESSAGE_TYPE::ERRORS, "App", "App", "No .mp4 files found in the Videos folder.");
     }
 
     wndClass.lpfnWndProc = WndProc; 
@@ -142,7 +141,7 @@ void App::SendTCPMessage(const std::string& message)
         int bytesSent = send(static_cast<SOCKET>(clientSocket), message.c_str(), static_cast<int>(message.length()), 0);
         if (bytesSent == -1)
         {
-            std::cerr << "App::HandleCommand failed to send response back to client." << std::endl;
+			LogMessage(MESSAGE_TYPE::ERRORS, "App", "SendTCPMessage", "Failed to send response back to client.");
         }
     }
 }
@@ -410,7 +409,7 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
     }
     catch (const std::exception& ex)
     {
-        std::cerr << "Error handling network command: " << ex.what() << std::endl;
+		LogMessage(MESSAGE_TYPE::ERRORS, "App", "HandleNetworkCommand", "Error handling network command: " + std::string(ex.what()));
 	}
 }
 
@@ -433,20 +432,23 @@ void App::LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context)
         }
         else
         {
-            std::cerr << "[ERROR App] Failed to open video: " << filename << std::endl;
+			LogMessage(MESSAGE_TYPE::ERRORS, "App", "LoadVideoSources", "Failed to open video: " + filename);
         }
 
         
     }
 
 	int numSources = state.sourcesMap.size();
-    std::string infoMsg = "[INFO App->LoadVideoSources]  Video sources loaded: " + std::to_string(numSources);
-    std::cout << infoMsg << std::endl;
+    
+    std::stringstream ss;
+	ss << "Video sources loaded: " << numSources;
+
     for (const auto& source : state.sourcesMap)
     {
-        infoMsg = "     VideoSource: " + source.second->filename + " / Duration: " + GetDurationMinSec(static_cast<int>(source.second->duration));
-        std::cout << infoMsg << std::endl;
+    	ss << "\n     VideoSource: " << source.second->filename << " / Duration: " << GetDurationMinSec(static_cast<int>(source.second->duration));
     }
+
+	LogMessage(MESSAGE_TYPE::INFO, "App", "LoadVideoSources", ss.str());
 }
 
 LRESULT App::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
