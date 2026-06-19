@@ -2,8 +2,14 @@
 #include <d3d11.h>
 #include <string>
 
+class IApp;
+
 class DXShader
 {
+private:
+    const std::string RESET = "\033[0m";
+    const std::string RED = "\033[31m";
+
 public:
     ID3D11VertexShader* vs = nullptr;
     ID3D11PixelShader* ps = nullptr;
