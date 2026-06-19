@@ -976,12 +976,12 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 		std::string targetFile = filename;
 
 		// Must undergo smooth motion transition phase through cover asset layer
-		TransitionTo(first_pos, fadeIn, fadeOut, idVal, fgFadeOut, loopVid);
+		TransitionTo(first_pos, fadeIn, fadeOut, idVal, fgFadeOut, loopVid, forceCoverOnExit);
 
 	}
 }
 
-void PlaybackManager::TransitionTo(float targetPos, float coverfadeIn, float coverfadeOut, int idVal, float fgFadeOut, bool loop)
+void PlaybackManager::TransitionTo(float targetPos, float coverfadeIn, float coverfadeOut, int idVal, float fgFadeOut, bool loop, bool forceCoverOnExit)
 {
 	AppState& state = appInterface->GetAppState();
 	Config& config = appInterface->GetConfig();
@@ -1002,7 +1002,7 @@ void PlaybackManager::TransitionTo(float targetPos, float coverfadeIn, float cov
 	//Updates the NetworkManager to make it ready for the Brake-Move-To transition
 	if (state.networkMgr)
 	{
-		state.networkMgr->SetupTransition(targetPos, _coverFadeIn, _coverFadeOut, idVal, loop);
+		state.networkMgr->SetupTransition(targetPos, _coverFadeIn, _coverFadeOut, fgFadeOut, idVal, loop, forceCoverOnExit);
 	}
 
 	state.transitionId = idVal;

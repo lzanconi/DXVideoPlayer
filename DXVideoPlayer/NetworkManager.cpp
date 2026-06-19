@@ -86,7 +86,7 @@ void NetworkManager::Stop()
 * targetPos -> the target playback position to transition to
 * id -> the choreography ID associated with this transition, used for logging and debugging purposes    
 */
-void NetworkManager::SetupTransition(float targetPos, float fadeIn, float fadeOut, int id, bool loop)
+void NetworkManager::SetupTransition(float targetPos, float fadeIn, float fadeOut, float fgFadeOut, int id, bool loop, bool forceCoverOnExit)
 {
     std::lock_guard<std::mutex> lock(clientSocketMutex);
 
@@ -94,6 +94,8 @@ void NetworkManager::SetupTransition(float targetPos, float fadeIn, float fadeOu
     this->transition_target_position = targetPos;
 	this->transitionFadeIn = fadeIn;
 	this->transitionFadeOut = fadeOut;
+    this->transitionFgFadeOut = fgFadeOut;
+	this->transitionforceCoverOnExit = forceCoverOnExit;
 	this->transitionLoop = loop;
     //Redirects the PositionSend pipeline away from sending live video-calculated frames, shifting it instead into Brake-Move-to transition logic loop.
     this->transition_mode_active = true;
@@ -355,9 +357,15 @@ void NetworkManager::PositionSend(SOCKET socket)
                             "{\"play_choreography\":%d,\"loop\":%s,\"fade_in_seconds\":%.3f,\"fade_out_seconds\":%.3f}",
                             transitionId, this->transitionLoop ? "true" : "false", this->transitionFadeIn, this->transitionFadeOut);*/
 
-                        snprintf(status_buf, sizeof(status_buf),
+                        /*snprintf(status_buf, sizeof(status_buf),
                             "{\"play_choreography\":\"%s\",\"id\":%d,\"loop\":%s,\"fade_in_seconds\":%.3f,\"fade_out_seconds\":%.3f}",
-                            "", transitionId, transitionLoop ? "true" : "false", transitionFadeIn, transitionFadeOut);
+                            "", transitionId, transitionLoop ? "true" : "false", transitionFadeIn, transitionFadeOut);*/
+
+                        snprintf(status_buf, sizeof(status_buf),
+                            "{\"fade_in_seconds\":%g,\"fade_out_seconds\":%g,\"fg_fade_out_seconds\":%g,"
+                            "\"force_cover_on_exit\":%s,\"id\":%d,\"loop\":%s,\"play_choreography\":\"%s\"}",
+                            transitionFadeIn, transitionFadeOut, transitionFgFadeOut,
+                            transitionforceCoverOnExit ? "true" : "false", transitionId, transitionLoop ? "true" : "false", "");
 
                         std::string test(status_buf);
                         appInterface->HandleNetworkCommand(std::string(status_buf));

@@ -49,6 +49,9 @@ private:
 
 	float transitionFadeIn = 0.0f;
 	float transitionFadeOut = 0.0f;
+	float transitionFgFadeOut = 0.0f;
+	bool transitionforceCoverOnExit = false;
+	std::string transitionFilename;
 	bool transitionLoop = false;
 
 public:
@@ -60,7 +63,7 @@ public:
 	bool IsTransitionActive() const { return transition_mode_active; }
 	bool IsStoppingPhase() const { return stopping_phase; }
 	float GetTransitionTargetPosition() const { return transition_target_position; }
-	void SetupTransition(float targetPos, float fadeIn, float fadeOut, int id, bool loop);
+	void SetupTransition(float targetPos, float fadeIn, float fadeOut, float fgFadeOut, int id, bool loop, bool forceCoverOnExit);
 
 private:
 	//Client methods
