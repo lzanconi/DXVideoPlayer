@@ -1,9 +1,14 @@
 #include "Logger.h"
 #include <iostream>
+#include <fstream>
 #include "utils.h"
+
+std::mutex Logger::logMutex;
 
 void Logger::LogMessage(MESSAGE_TYPE type, const std::string& className, const std::string& methodName, const std::string& message)
 {
+	std::lock_guard<std::mutex> lock(logMutex);
+
 	const std::string RESET = "\033[0m";
 	const std::string RED = "\033[31m";
 	const std::string GREEN = "\033[32m";
@@ -26,5 +31,12 @@ void Logger::LogMessage(MESSAGE_TYPE type, const std::string& className, const s
 	else
 	{
 		std::cout << GREEN << logMsg << RESET << std::endl;
+	}
+
+	std::ofstream logFile("videoplayer.log", std::ios::app);
+	if (logFile.is_open())
+	{
+		logFile << logMsg;
+		logFile.close();
 	}
 }
