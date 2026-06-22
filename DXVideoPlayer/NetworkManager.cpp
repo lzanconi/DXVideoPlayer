@@ -112,60 +112,71 @@ void NetworkManager::SetupTransition(float targetPos, float fadeIn, float fadeOu
 
 void NetworkManager::RunClient()
 {
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
-        return;
-
-    while (clientRunning)
+    try
     {
-        SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (clientSocket == (SOCKET)-1)
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            continue;
-        }
+        WSADATA wsaData;
+        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
+            return;
 
+        while (clientRunning)
         {
-            std::lock_guard<std::mutex> lock(clientSocketMutex);
-            if (!clientRunning) {
+            SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+            if (clientSocket == (SOCKET)-1)
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                continue;
+            }
+
+            {
+                std::lock_guard<std::mutex> lock(clientSocketMutex);
+                if (!clientRunning) {
+                    closesocket(clientSocket);
+                    break;
+                }
+                activeClientSocket = clientSocket;
+            }
+
+            Config config = appInterface->GetConfig();
+            sockaddr_in serverAddr;
+            serverAddr.sin_family = AF_INET;
+            serverAddr.sin_port = htons(config.target_port);
+            inet_pton(AF_INET, config.target_ip.c_str(), &serverAddr.sin_addr);
+
+            Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunClient", "CLIENT: Attempting to connect to server at " + config.target_ip + ":" + std::to_string(config.target_port) + "...");
+
+            if (connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
+            {
+                std::lock_guard<std::mutex> lock(clientSocketMutex);
                 closesocket(clientSocket);
-                break;
+                activeClientSocket = (SOCKET)-1;
+
+                for (int i = 0; i < 20 && clientRunning; ++i) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
+                continue;
             }
-            activeClientSocket = clientSocket;
-        }
 
-        Config config = appInterface->GetConfig();
-        sockaddr_in serverAddr;
-        serverAddr.sin_family = AF_INET;
-        serverAddr.sin_port = htons(config.target_port);
-        inet_pton(AF_INET, config.target_ip.c_str(), &serverAddr.sin_addr);
+            Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunClient", "CLIENT: Client connected to Position Server");
 
-        Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunClient", "CLIENT: Attempting to connect to server at " + config.target_ip + ":" + std::to_string(config.target_port) + "...");
+            PositionSend(clientSocket);
 
-        if (connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
-        {
-            std::lock_guard<std::mutex> lock(clientSocketMutex);
-            closesocket(clientSocket);
-            activeClientSocket = (SOCKET)-1;
-
-            for (int i = 0; i < 20 && clientRunning; ++i) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            {
+                std::lock_guard<std::mutex> lock(clientSocketMutex);
+                closesocket(clientSocket);
+                activeClientSocket = (SOCKET)-1;
             }
-            continue;
         }
 
-        Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunClient", "CLIENT: Client connected to Position Server");
-
-        PositionSend(clientSocket);
-
-        {
-            std::lock_guard<std::mutex> lock(clientSocketMutex);
-            closesocket(clientSocket);
-            activeClientSocket = (SOCKET)-1;
-        }
+        WSACleanup();
     }
-
-    WSACleanup();
+    catch (const std::exception& ex)
+    {
+        Logger::LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "RunClient", "Client thread crashed: " + std::string(ex.what()));
+    }
+    catch (...)
+    {
+        Logger::LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "RunClient", "Client thread crashed with an unknown exception.");
+    }
 }
 
 void NetworkManager::PositionSend(SOCKET socket)
@@ -438,89 +449,101 @@ void NetworkManager::PositionSend(SOCKET socket)
 
 void NetworkManager::RunServer()
 {
-    Config config = appInterface->GetConfig();
 
-    WSADATA wsaData;
-    WSAStartup(MAKEWORD(2, 2), &wsaData);
-
-    while (serverRunning)
+    try
     {
-        SOCKET localListenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (localListenSocket == (SOCKET)-1)
-        {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            continue;
-        }
+        Config config = appInterface->GetConfig();
 
-        char reuse = 1;
-        setsockopt(localListenSocket, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
-
-        sockaddr_in serverAddr;
-        serverAddr.sin_family = AF_INET;
-        serverAddr.sin_port = htons(config.control_port);
-        serverAddr.sin_addr.s_addr = INADDR_ANY;
-
-        if (bind(localListenSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
-        {
-            Logger::LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "RunServer", "SERVER: Server failed to bind on port " + std::to_string(config.control_port));
-            closesocket(localListenSocket);
-            std::this_thread::sleep_for(std::chrono::seconds(2));
-            continue;
-        }
-
-        if (listen(localListenSocket, SOMAXCONN) == -1)
-        {
-            closesocket(localListenSocket);
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            continue;
-        }
-
-        Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunServer", "SERVER: Server listening on port " + std::to_string(config.control_port));
-
-        {
-            std::lock_guard<std::mutex> lock(serverSocketMutex);
-            if (!serverRunning) {
-                closesocket(localListenSocket);
-                break;
-            }
-            listenSocket = localListenSocket;
-        }
-
-        // Apply a socket receive timeout so accept() checks serverRunning every 500ms
-        DWORD timeout = 500;
-        setsockopt(localListenSocket, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
+        WSADATA wsaData;
+        WSAStartup(MAKEWORD(2, 2), &wsaData);
 
         while (serverRunning)
         {
-            sockaddr_in clientAddr;
-            int clientAddrLen = sizeof(clientAddr);
-            SOCKET inboundClient = accept(localListenSocket, (sockaddr*)&clientAddr, &clientAddrLen);
-
-            if (inboundClient == (SOCKET)-1)
+            SOCKET localListenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+            if (localListenSocket == (SOCKET)-1)
             {
-                if (!serverRunning) break;
+                std::this_thread::sleep_for(std::chrono::seconds(1));
                 continue;
             }
 
-            char clientIPStr[INET_ADDRSTRLEN];
-            inet_ntop(AF_INET, &clientAddr.sin_addr, clientIPStr, INET_ADDRSTRLEN);
+            char reuse = 1;
+            setsockopt(localListenSocket, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
-            Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunServer", "SERVER: New client connected from " + std::string(clientIPStr));
+            sockaddr_in serverAddr;
+            serverAddr.sin_family = AF_INET;
+            serverAddr.sin_port = htons(config.control_port);
+            serverAddr.sin_addr.s_addr = INADDR_ANY;
 
-            appInterface->SetClientSocket(inboundClient);
+            if (bind(localListenSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
+            {
+                Logger::LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "RunServer", "SERVER: Server failed to bind on port " + std::to_string(config.control_port));
+                closesocket(localListenSocket);
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+                continue;
+            }
 
-            std::thread connectionThread(&NetworkManager::HandleIncomingConnection, this, inboundClient);
-            connectionThread.detach();
+            if (listen(localListenSocket, SOMAXCONN) == -1)
+            {
+                closesocket(localListenSocket);
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+                continue;
+            }
+
+            Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunServer", "SERVER: Server listening on port " + std::to_string(config.control_port));
+
+            {
+                std::lock_guard<std::mutex> lock(serverSocketMutex);
+                if (!serverRunning) {
+                    closesocket(localListenSocket);
+                    break;
+                }
+                listenSocket = localListenSocket;
+            }
+
+            // Apply a socket receive timeout so accept() checks serverRunning every 500ms
+            DWORD timeout = 500;
+            setsockopt(localListenSocket, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
+
+            while (serverRunning)
+            {
+                sockaddr_in clientAddr;
+                int clientAddrLen = sizeof(clientAddr);
+                SOCKET inboundClient = accept(localListenSocket, (sockaddr*)&clientAddr, &clientAddrLen);
+
+                if (inboundClient == (SOCKET)-1)
+                {
+                    if (!serverRunning) break;
+                    continue;
+                }
+
+                char clientIPStr[INET_ADDRSTRLEN];
+                inet_ntop(AF_INET, &clientAddr.sin_addr, clientIPStr, INET_ADDRSTRLEN);
+
+                Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "RunServer", "SERVER: New client connected from " + std::string(clientIPStr));
+
+                appInterface->SetClientSocket(inboundClient);
+
+                std::thread connectionThread(&NetworkManager::HandleIncomingConnection, this, inboundClient);
+                connectionThread.detach();
+            }
+
+            {
+                std::lock_guard<std::mutex> lock(serverSocketMutex);
+                closesocket(localListenSocket);
+                listenSocket = (SOCKET)-1;
+            }
         }
 
-        {
-            std::lock_guard<std::mutex> lock(serverSocketMutex);
-            closesocket(localListenSocket);
-            listenSocket = (SOCKET)-1;
-        }
+        WSACleanup();
     }
-
-    WSACleanup();
+    catch (const std::exception& ex)
+    {
+        Logger::LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "RunServer", "Server thread crashed: " + std::string(ex.what()));
+    }
+    catch (...)
+    {
+        Logger::LogMessage(MESSAGE_TYPE::ERRORS, "NetworkManager", "RunServer", "Server thread crashed with an unknown exception.");
+    }
 }
 
 void NetworkManager::HandleIncomingConnection(SOCKET clientSocket)

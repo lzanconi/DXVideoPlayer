@@ -13,6 +13,8 @@
 #include "VideoSource.h"
 #include "DXRenderer.h"
 #include "App.h"    
+#include "Logger.h"
+#include "CrashHandler.h"
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -32,6 +34,8 @@
 
 int main() 
 {
+	CrashHandler::Initialize();
+
     try
     {
 		App app(1280, 720);
@@ -39,6 +43,14 @@ int main()
     }
     catch (const std::exception& ex)
     {
-        MessageBoxA(nullptr, ex.what(), "Error", MB_ICONERROR);
+		Logger::LogMessage(MESSAGE_TYPE::ERRORS, "main", "main", "Fatal application crash: " + std::string(ex.what())); 
+        return -1;
 	}
+    catch (...)
+    {
+        Logger::LogMessage(MESSAGE_TYPE::ERRORS, "main", "main", "Fatal application crash due to an unknown/non-standard exception.");
+        return -1;
+    }
+
+	return 0;
 }
