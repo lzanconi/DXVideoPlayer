@@ -5,6 +5,17 @@
 
 std::mutex Logger::logMutex;
 
+void Logger::ClearLog()
+{
+	std::lock_guard<std::mutex> lock(logMutex);
+	std::ofstream logFile("videoplayer.log", std::ios::out | std::ios::trunc);
+	if (logFile.is_open())
+	{
+		logFile << "=== Log File Initialized (" << GetTimestampStr() << ") ===\n";
+		logFile.close();
+	}
+}
+
 void Logger::LogMessage(MESSAGE_TYPE type, const std::string& className, const std::string& methodName, const std::string& message)
 {
 	std::lock_guard<std::mutex> lock(logMutex);

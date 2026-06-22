@@ -35,6 +35,7 @@
 int main() 
 {
 	CrashHandler::Initialize();
+	Logger::ClearLog(); 
 
     try
     {
