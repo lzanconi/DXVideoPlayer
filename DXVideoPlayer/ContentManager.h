@@ -5,6 +5,8 @@
 
 class IApp;
 class PlaybackManager;
+struct ID3D11Device; 
+struct ID3D11DeviceContext;
 
 class ContentManager
 {
@@ -20,6 +22,7 @@ public:
 	void LoadContents();
 	
 	void LoadSequences(const std::string& folderPath, PlaybackManager* playbackMgr);
+	void LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context);
 
 	const std::map<std::string, VideoContent>& GetVideoContentsMap() const;
 

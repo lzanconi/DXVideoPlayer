@@ -69,7 +69,6 @@ public:
 	void SendTCPMessage(const std::string& message) override;	
 
 private:
-	void LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context);
 	static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 	LRESULT HandleMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 	void ToggleFullscreen(HWND hwnd);

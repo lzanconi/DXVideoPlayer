@@ -45,7 +45,7 @@ App::App(int width, int height)
     videoShader = new DXShader();
     videoShader->LoadFromFile(renderer->GetDevice(), L"shaders.hlsl");
 
-	LoadVideoSources(renderer->GetDevice(), renderer->GetContext());
+	contentMgr->LoadVideoSources(renderer->GetDevice(), renderer->GetContext());
 
 	playbackMgr = new PlaybackManager(this, videoShader);
 	playbackMgr->InitializeVideoTracks();
@@ -412,43 +412,6 @@ void App::HandleNetworkCommand(const std::string& jsonStr)
     {
 		Logger::LogMessage(MESSAGE_TYPE::ERRORS, "App", "HandleNetworkCommand", "Error handling network command: " + std::string(ex.what()));
 	}
-}
-
-void App::LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context)
-{
-    for (const auto& videoContent : contentMgr->GetVideoContentsMap())
-    {
-		std::string filename = videoContent.second.filename;
-        VideoSource* videoSource = new VideoSource();
-        if (videoSource->OpenFile(filename, renderer->GetDevice(), renderer->GetContext()))
-        {
-            videoSource->fadeInDuration = videoContent.second.fadeInDuration;
-            videoSource->fadeOutDuration = videoContent.second.fadeOutDuration;
-            videoSource->looped = videoContent.second.looped;
-			videoSource->positions = videoContent.second.positions;
-			videoSource->events = videoContent.second.events;
-            //state.sources.push_back(videoSource);
-			std::string sourceName = GetFilenameFromPath(filename);
-            state.sourcesMap[sourceName] = videoSource;
-        }
-        else
-        {
-			Logger::LogMessage(MESSAGE_TYPE::ERRORS, "App", "LoadVideoSources", "Failed to open video: " + filename);
-        }
-
-        
-    }
-
-	int numSources = state.sourcesMap.size();
-    std::stringstream ss;
-    ss << "Video sources loaded: " << numSources << "\n";
-
-    for (const auto& source : state.sourcesMap)
-    {
-		ss << "     VideoSource: " << source.second->filename << " / Duration: " << GetDurationMinSec(static_cast<int>(source.second->duration)) << std::endl;
-    }
-
-	Logger::LogMessage(MESSAGE_TYPE::INFO, "App", "LoadVideoSources", ss.str());
 }
 
 LRESULT App::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)

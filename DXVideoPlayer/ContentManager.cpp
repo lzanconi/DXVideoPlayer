@@ -346,3 +346,41 @@ const std::map<std::string, VideoContent>& ContentManager::GetVideoContentsMap()
 {
     return videoContentsMap;
 }
+
+
+void ContentManager::LoadVideoSources(ID3D11Device* device, ID3D11DeviceContext* context)
+{
+	AppState& state = appInterface->GetAppState();
+
+    for (const auto& videoContent : videoContentsMap)
+    {
+        std::string filename = videoContent.second.filename;
+        VideoSource* videoSource = new VideoSource();
+        if (videoSource->OpenFile(filename, device, context))
+        {
+            videoSource->fadeInDuration = videoContent.second.fadeInDuration;
+            videoSource->fadeOutDuration = videoContent.second.fadeOutDuration;
+            videoSource->looped = videoContent.second.looped;
+            videoSource->positions = videoContent.second.positions;
+            videoSource->events = videoContent.second.events;
+            //state.sources.push_back(videoSource);
+            std::string sourceName = GetFilenameFromPath(filename);
+            state.sourcesMap[sourceName] = videoSource;
+        }
+        else
+        {
+            Logger::LogMessage(MESSAGE_TYPE::ERRORS, "App", "LoadVideoSources", "Failed to open video: " + filename);
+        }
+    }
+
+    int numSources = state.sourcesMap.size();
+    std::stringstream ss;
+    ss << "Video sources loaded: " << numSources << "\n";
+
+    for (const auto& source : state.sourcesMap)
+    {
+        ss << "     VideoSource: " << source.second->filename << " / Duration: " << GetDurationMinSec(static_cast<int>(source.second->duration)) << std::endl;
+    }
+
+    Logger::LogMessage(MESSAGE_TYPE::INFO, "App", "LoadVideoSources", ss.str());
+}   
