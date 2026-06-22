@@ -61,17 +61,24 @@ App::App(int width, int height)
 
 App::~App()
 {
-    if (configMgr)
-		delete configMgr;
-
-    if (playbackMgr)
-		delete playbackMgr;
-
     if (state.networkMgr)
     {
         state.networkMgr->Stop();
         delete state.networkMgr;
-	}
+        state.networkMgr = nullptr;
+    }
+
+    if (configMgr)
+    {
+        delete configMgr;
+		configMgr = nullptr;
+    }
+
+    if (playbackMgr)
+    {
+        delete playbackMgr;
+		playbackMgr = nullptr;
+    }
 
     for (auto source : state.sources)
         delete source;
