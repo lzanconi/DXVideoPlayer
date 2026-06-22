@@ -35,7 +35,7 @@ App::App(int width, int height)
     wndClass.lpszClassName = L"VP"; 
     wndClass.hInstance = GetModuleHandle(NULL);
     RegisterClass(&wndClass);
-    window = CreateWindow(L"VP", L"OOP Video Player", WS_OVERLAPPEDWINDOW, 100, 100, width, height, 0, 0, wndClass.hInstance, this);
+    window = CreateWindow(L"VP", L"DirectX Video Player", WS_OVERLAPPEDWINDOW, 100, 100, width, height, 0, 0, wndClass.hInstance, this);
 
     DXRenderer* dxRenderer = new DXRenderer();
     dxRenderer->Initialize(window);
