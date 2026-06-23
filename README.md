@@ -30,6 +30,17 @@ Go to **Linker** -> **General** -> **Additional Library Directories**, here you 
 Go to **Linker** -> **Input** -> **Additional Depedencies**, here you can pase the libraries file names
 
 
+### Setup Windows 11 to run app from SSH
+**1.Enable Administrator Elevation for OpenSSH**
+By default, Windows SSH sessions log you with standard user permission even if your user is part of Administration group.
+To grant the user full administrative token via SSH, open a **power shell** terminal with Administration rights and then run this command:
+```New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "LocalAccountTokenFilterPolicy" -Value 1 -PropertyType DWORD -Force```
+
+**2.Run the application from SSH**
+In Windows, SSH sessions run in a secure, isolated background space known as **Session 0**, this prevents sessions from interacting with the desktop (which runs in **Session 1**).
+The cleanest way to overcome this problem is to use **Windows Task Scheduler**, because Scheduled Task can be configured to run in the context of the currently logged-in desktop user on the remote machine.
+Create a powershell script and name it **Create-DXPlayer-Scheduled-Task.ps1**
+Open the file and paste the following code:
 ```
 # 1. Remove any previous task with the same name
 Unregister-ScheduledTask -TaskName "RunDXPlayer" -Confirm:$false 
@@ -62,28 +73,19 @@ To view the output of the application, run:
 ```
 Get-Content "C:\Users\LattePanda\DXVideoPlayer\output.log" -Wait
 ```
+Use **Ctrl + C** to exit from viewing the output
+
+**3.Kill the app from SSH**
+Running **taskkill** is not enough, it kills the app but it leaves some child threads alive that causes the app to hangs when you run it again after trying to kill it.
+First we have to create a script named **Close-DXVideoPlayer.ps1** and paste the following code:
+```
+$w = New-Object -ComObject WScript.Shell; if ($w.AppActivate("DirectX Video Player")) { Start-Sleep -Milliseconds 200; $w.SendKeys("{ESC}") }      
+```
+To register this Scheduled Task, exit from powershell and run in the SSH terminal:
+```
+schtasks /create /tn "CloseDXPlayer" /tr "powershell.exe -WindowStyle Hidden -File C:\Users\LattePanda\DXVideoPlayer\Close-DXVideoPlayer.ps1" /sc ONCE /sd 01/01/2026 /st 00:00 /it /ru "Builtin\Users" /f
+```
 Finally, to kill the app, enter in powershell and run the Scheduled Task:
 ```
 Start-ScheduledTask -Name "CloseDXPlayer"
 ```
-Use **Ctrl + C** to exit from viewing the output
-schtasks /create /tn "CloseDXPlayer" /tr "powershell.exe -WindowStyle Hidden -File C:\Users\LattePanda\DXVideoPlayer\Close-DXVideoPlayer.ps1" /sc ONCE /sd 01/01/2026 /st 00:00 /it /ru "Builtin\Users" /f
-```
-```
-To register this Scheduled Task, exit from powershell and run in the SSH terminal:
-```
-
-**3.Kill the app from SSH**
-$w = New-Object -ComObject WScript.Shell; if ($w.AppActivate("DirectX Video Player")) { Start-Sleep -Milliseconds 200; $w.SendKeys("{ESC}") }      
-Running **taskkill** is not enough, it kills the app but it leaves some child threads alive that causes the app to hangs when you run it again after trying to kill it.
-First we have to create a script named **Close-DXVideoPlayer.ps1** and paste the following code:
-```
-### Setup Windows 11 to run app from SSH
-Create a powershell script and name it **Create-DXPlayer-Scheduled-Task.ps1**
-Open the file and paste the following code:
-**1.Enable Administrator Elevation for OpenSSH**
-In Windows, SSH sessions run in a secure, isolated background space known as **Session 0**, this prevents sessions from interacting with the desktop (which runs in **Session 1**).
-The cleanest way to overcome this problem is to use **Windows Task Scheduler**, because Scheduled Task can be configured to run in the context of the currently logged-in desktop user on the remote machine.
-By default, Windows SSH sessions log you with standard user permission even if your user is part of Administration group.
-To grant the user full administrative token via SSH, open a **power shell** terminal with Administration rights and then run this command:
-```New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "LocalAccountTokenFilterPolicy" -Value 1 -PropertyType DWORD -Force```
