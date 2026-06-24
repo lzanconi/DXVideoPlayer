@@ -1,5 +1,7 @@
 #include "PlaybackManager.h"
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 #include <format>
 #include "App.h"
 #include "utils.h"
@@ -814,8 +816,16 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 	AppState& state = appInterface->GetAppState();
 	Config& config = appInterface->GetConfig();
 
+	char buffer[50];
+	std::snprintf(buffer, sizeof(buffer), "%.2f", fgFadeOut);
+	std::string fgFadeOutStr(buffer);
+	std::snprintf(buffer, sizeof(buffer), "%.2f", fadeIn);
+	std::string fadeInStr(buffer);
+	std::snprintf(buffer, sizeof(buffer), "%.2f", fadeOut);
+	std::string fadeOutStr(buffer);
+
 	Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "PlayChoreography", "Playing choreography file: " + filename + " with ID: " + std::to_string(idVal) + 
-		" fgFadeOut: " + std::to_string(fgFadeOut) + " fadeIn: " + std::to_string(fadeIn) + " fadeOut: " + std::to_string(fadeOut) + " loopVid: " + (loopVid? + "true" : + "false") + 
+		" fgFadeOut: " + fgFadeOutStr + " fadeIn: " + fadeInStr + " fadeOut: " + fadeOutStr + " loopVid: " + (loopVid? + "true" : + "false") + 
 		" forceCoverOnExit: " + (forceCoverOnExit ? +"true" : +"false"));
 
 	// 1. Stores this ID in lastChoreoID to track which choreography sequence is currently running
