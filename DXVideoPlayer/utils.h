@@ -41,6 +41,7 @@ inline std::string LayerTypeToStr(LayerType layerType)
 {
     switch (layerType)
     {
+	    case LayerType::Background: return "Background";
         case LayerType::Foreground: return "Foreground";
         case LayerType::Cover: return "Cover";
         default: return "Unknown";
