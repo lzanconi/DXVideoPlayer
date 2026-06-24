@@ -178,7 +178,7 @@ bool VideoSource::GetNextFrame(ID3D11DeviceContext* context)
         else
         {
             //If the video has to loop
-            if (looped)
+            if (looped && !isForcedFadingOut)
             {
                 //Flushes the decoder state and seeks back to the beginning of the video
                 Rewind();
