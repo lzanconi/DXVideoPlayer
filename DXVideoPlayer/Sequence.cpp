@@ -25,7 +25,7 @@ void Sequence::Play(float overrideFadeIn)
 
 	if (overrideFadeIn >= 0.0f)
 	{
-		Logger::LogMessage(MESSAGE_TYPE::INFO, "Sequence", "Play", "SEQUENCE: Applying automated timeline event override fade-in " + std::to_string(overrideFadeIn) + "s");
+		Logger::LogMessage(MESSAGE_TYPE::INFO, "Sequence", "Play", "SEQUENCE: Applying override fade-in " + std::to_string(overrideFadeIn) + "s");
 		cmd.fadeInDuration = overrideFadeIn;
 	}
 	else
