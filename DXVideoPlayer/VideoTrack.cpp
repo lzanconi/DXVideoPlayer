@@ -101,7 +101,7 @@ void VideoTrack::UpdateFrame(ID3D11DeviceContext* context)
             if (prevState != state)
             {
                 //Logs the state change for debugging purposes, showing the previous and current state of the track
-                Logger::LogMessage(MESSAGE_TYPE::INFO, "VideoTrack", "UpdateFrame", "TRACK: Track '" + GetSource()->filename + "' state changed " + VideoTrackStateToStr(prevState) + " -> " + VideoTrackStateToStr(state));
+                //Logger::LogMessage(MESSAGE_TYPE::INFO, "VideoTrack", "UpdateFrame", "TRACK: Track '" + GetSource()->filename + "' state changed " + VideoTrackStateToStr(prevState) + " -> " + VideoTrackStateToStr(state));
                 prevState = state;
             }
         }
@@ -121,7 +121,7 @@ void VideoTrack::UpdateFrame(ID3D11DeviceContext* context)
             if (prevState != state)
             {
                 //Logs the state change for debugging purposes, showing the previous and current state of the track
-                Logger::LogMessage(MESSAGE_TYPE::INFO, "VideoTrack", "UpdateFrame", "TRACK: Track '" + GetSource()->filename + "' state changed " + VideoTrackStateToStr(prevState) + " -> " + VideoTrackStateToStr(state));
+                //Logger::LogMessage(MESSAGE_TYPE::INFO, "VideoTrack", "UpdateFrame", "TRACK: Track '" + GetSource()->filename + "' state changed " + VideoTrackStateToStr(prevState) + " -> " + VideoTrackStateToStr(state));
                 prevState = state;
             }
             return;
@@ -158,7 +158,7 @@ void VideoTrack::UpdateFrame(ID3D11DeviceContext* context)
         if (prevState != state)
         {
             //Logs the state change for debugging purposes
-            Logger::LogMessage(MESSAGE_TYPE::INFO, "VideoTrack", "UpdateFrame", "TRACK: Track '" + GetSource()->filename + "' state changed " + VideoTrackStateToStr(prevState) + " -> " + VideoTrackStateToStr(state));
+            //Logger::LogMessage(MESSAGE_TYPE::INFO, "VideoTrack", "UpdateFrame", "TRACK: Track '" + GetSource()->filename + "' state changed " + VideoTrackStateToStr(prevState) + " -> " + VideoTrackStateToStr(state));
             prevState = state;
         }
         //Exit right away to guarantee zero frame ghosting artifacts
@@ -177,7 +177,7 @@ void VideoTrack::UpdateFrame(ID3D11DeviceContext* context)
     if (prevState != state)
     {
         //Logs the state change for debugging purposes
-        Logger::LogMessage(MESSAGE_TYPE::INFO, "VideoTrack", "UpdateFrame", "TRACK: Track '" + GetSource()->filename + "' state changed " + VideoTrackStateToStr(prevState) + " -> " + VideoTrackStateToStr(state));
+        //Logger::LogMessage(MESSAGE_TYPE::INFO, "VideoTrack", "UpdateFrame", "TRACK: Track '" + GetSource()->filename + "' state changed " + VideoTrackStateToStr(prevState) + " -> " + VideoTrackStateToStr(state));
         prevState = state;
     }
 }
