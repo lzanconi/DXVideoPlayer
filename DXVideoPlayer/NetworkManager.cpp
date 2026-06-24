@@ -424,7 +424,7 @@ void NetworkManager::PositionSend(SOCKET socket)
         {
             if (last_known_position == appInterface->GetTransitionPosition() && !sequence_triggered)
             {
-                Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "PositionSend", "COVER: Cover frame transition finished at position: " + std::to_string(last_known_position));
+                //Logger::LogMessage(MESSAGE_TYPE::INFO, "NetworkManager", "PositionSend", "COVER: Cover frame transition finished at position: " + std::to_string(last_known_position));
                 sequence_triggered = true;
             }
         }
