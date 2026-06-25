@@ -73,7 +73,7 @@ void ContentManager::LoadVideoContentsFromConfig()
         content.name = GetFilenameFromPath(videoPath.string());
         content.filename = videoPath.string();
 
-		state.choresMap[content.id] = content.name;
+		state.choreosMap[content.id] = content.name;
 
         //LOAD CSV POSITIONS
         if (choreo.contains("file"))

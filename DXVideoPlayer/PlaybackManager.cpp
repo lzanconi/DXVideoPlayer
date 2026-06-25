@@ -422,10 +422,10 @@ void PlaybackManager::HandlePendingChoreographyCmd(AppState& state)
 			"Foreground cleared. Booting pending choreography ID: " + std::to_string(pendingChoreographyCmd.choreoID));
 
 		//Ensures that the choreography ID from the pending command exists in the choresMap, which maps choreography IDs to their corresponding filenames.
-		if (state.choresMap.count(pendingChoreographyCmd.choreoID) > 0)
+		if (state.choreosMap.count(pendingChoreographyCmd.choreoID) > 0)
 		{
-			//Retrieves the filename associated with the choreography ID from the choresMap, which will be used to play the corresponding choreography video.
-			std::string filename = state.choresMap[pendingChoreographyCmd.choreoID];
+			//Retrieves the filename associated with the choreography ID from the choreosMap, which will be used to play the corresponding choreography video.
+			std::string filename = state.choreosMap[pendingChoreographyCmd.choreoID];
 
 			//Calls the PlayChoreography method to initiate the playback of the choreography video with the specified parameters from the pending command.
 			PlayChoreography(filename,
@@ -772,11 +772,11 @@ void PlaybackManager::ProcessDeferredCommands()
 			case NetworkCommandType::PlayChoreography:
 			{
 				//Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "ProcessDeferredCommands", "Processing deferred 'play_choreography' with ID: " + std::to_string(cmd.choreoID));	
-				int foundChoreo = state.choresMap.count(cmd.choreoID);
+				int foundChoreo = state.choreosMap.count(cmd.choreoID);
 
 				if (foundChoreo > 0)
 				{
-					std::string filename = state.choresMap[cmd.choreoID];
+					std::string filename = state.choreosMap[cmd.choreoID];
 					if (foregroundActive)
 					{
 						// If there is an active sequence, stop it to prevent it from advancing to the next item
