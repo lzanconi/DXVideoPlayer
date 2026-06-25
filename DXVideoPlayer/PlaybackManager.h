@@ -88,6 +88,6 @@ public:
 
 	void PlayChoreography(const std::string& filename, float fgFadeOut, float fadeIn, float fadeOut, int idVal, bool loopVid, bool forceCoverOnExit = false);
 	void TransitionTo(float targetPos, float coverfadeIn, float coverfadeOut, int idVal, float fgFadeOut, bool loop, bool forceCoverOnExit);
-	void ShowBgLastFrame(const std::string& filename, int idVal);
+	void InitializeOpaqueBackground(const std::string& filename, int idVal);
 };
 

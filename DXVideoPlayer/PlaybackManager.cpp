@@ -881,11 +881,12 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 
 	// 8a. PLAY WITHOUT COVER
 	//If the distance from the current position to the first position is less than 1 millimeter (std::abs(current_pos - first_pos), plays the choreography video immediately
+	//If a cover video is playing, just fades it out
 	if ((!forceCover && distance < 1.0f) || config.disable_cover)
 	{
 		Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "PlayChoreography", "Starting choreography from the beginning. Distance to first position: " + std::to_string(distance) + "s");
 		
-		//If the loop property loopVid is true, it routes the video to play directly on the background track natively.
+		// 1. If a video is looping, handle it instantly and a looping backgroun
 		if (loopVid)
 		{
 			DeferredCommand bgCmd;
@@ -896,28 +897,28 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 			bgCmd.fadeOutDuration = fadeOut;
 			this->PlayTrackOnLayer(filename, this->backgroundTrack, this->backgroundActive, LayerType::Background, &bgCmd);
 		}
-		else if (coverActive && coverTrack)
-		{
-			//This sets up the video completely opaque(alpha = 1.0f), ensuring it is ready for a seamless reveal when the cover drops.
-			/*this->ShowBgLastFrame(filename, idVal);*/
-			this->ShowBgLastFrame(filename, idVal);
-		}
-		//If the screen is entirely unmasked (no cover track playing), starting a video at alpha = 1.0f would cause a harsh, single-frame visual pop before standard updates can calculate blending. 
-		//To solve this, it packages a temporary DeferredCommand instructing the layer to begin smoothly with an alpha fade-in duration.
 		else
 		{
-			DeferredCommand bgCmd;
-			bgCmd.type = NetworkCommandType::PlayBackground;
-			bgCmd.filename = filename;
-			bgCmd.fadeInDuration = 0.0f;
-			bgCmd.fadeOutDuration = 0.0f;
-			bgCmd.looped = false;
-			this->PlayTrackOnLayer(filename, this->backgroundTrack, this->backgroundActive, LayerType::Background, &bgCmd);
+			// 2. If a cover video is running, setup the underlying background video to completely opaque before it will be shown
+			if (coverActive && coverTrack)
+			{
+				this->InitializeOpaqueBackground(filename, idVal);
+			}
+			// 3. If it has not to loop and no cover is playing, just play the background video 
+			else
+			{
+				DeferredCommand bgCmd;
+				bgCmd.type = NetworkCommandType::PlayBackground;
+				bgCmd.filename = filename;
+				bgCmd.fadeInDuration = 0.0f;
+				bgCmd.fadeOutDuration = 0.0f;
+				bgCmd.looped = false;
+				this->PlayTrackOnLayer(filename, this->backgroundTrack, this->backgroundActive, LayerType::Background, &bgCmd);
+			}
 		}
 
 		//COVER HIDE
-		//The current_pos is near enough to the first position in the choreography video, so we can start playing it immediately. 
-		//However, if the cover layer is active, we need to handle it properly.
+		//The requested background video is setup and already playing, now fade out the cover video and the transition should be smooth
 		if (coverActive && coverTrack)
 		{
 			//Logger::LogMessage(MESSAGE_TYPE::INFO, "PlaybackManager", "PlayChoreography", "Cover layer is active. Injecting immediate forced fade out.");
@@ -929,7 +930,6 @@ void PlaybackManager::PlayChoreography(const std::string& filename, float fgFade
 			}
 
 			// Force a fade-out transition using the requested timing parameter
-			//float coverFadeOut = (fadeOut == 0.0f) ? config.cover_fade_out_time : fadeOut;
 			float coverFadeOut = (fadeOut > 0.0f) ? fadeOut : config.cover_fade_out_time;
 			coverTrack->StartForcedFadeOut(coverFadeOut);
 		}
@@ -986,7 +986,7 @@ void PlaybackManager::TransitionTo(float targetPos, float coverfadeIn, float cov
 * This method is primarily called during choreography updates when a cover video transition completes. 
 * Its goal is to bring the background video to full visibility instantly underneath a fading cover layer so that the transition looks smooth.
 */
-void PlaybackManager::ShowBgLastFrame(const std::string& filename, int idVal)
+void PlaybackManager::InitializeOpaqueBackground(const std::string& filename, int idVal)
 {
 	DeferredCommand bgCmd;
 	bgCmd.type = NetworkCommandType::PlayBackground;
