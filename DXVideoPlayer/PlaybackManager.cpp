@@ -810,6 +810,10 @@ void PlaybackManager::ProcessDeferredCommands()
 						cmd.forceCoverOnExit);
 
 				}
+				else 
+				{
+					Logger::LogMessage(MESSAGE_TYPE::ERRORS, "PlaybackManager", "ProcessDeferredCommands", "Requested choreography ID not found: " + std::to_string(cmd.choreoID));
+				}
 				
 
 				break;
