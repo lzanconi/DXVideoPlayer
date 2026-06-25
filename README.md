@@ -27,7 +27,7 @@ Go to **C/C++** -> **Additional Include Directories**, here you can update the i
 ### Visual Studio project update linker 
 To update linker paths, right click on the project name in the **Solution Explorer** and click on **Properties**
 Go to **Linker** -> **General** -> **Additional Library Directories**, here you can update the libraries paths
-Go to **Linker** -> **Input** -> **Additional Depedencies**, here you can pase the libraries file names
+Go to **Linker** -> **Input** -> **Additional Depedencies**, here you can paste the libraries file names
 
 
 ### Setup Windows 11 to run app from SSH
@@ -89,3 +89,15 @@ Finally, to kill the app, enter in powershell and run the Scheduled Task:
 ```
 Start-ScheduledTask -Name "CloseDXPlayer"
 ```
+### Select the GPU to use
+Because we're using **DXVA** (DirectX Video Acceleration), we can switch between integrated GPU and discrete GPU without having to change the codebase.
+This is possibile because DXVA abstracts the interfacing with video drivers.
+It's the operating system that decides which GPU the video player has to use.
+
+1. Go to **Settings** -> **System** -> **Display**
+2. Go to **Graphics** and you should see a section named **Custom settings for application**
+3. Click on **Add desktop**, it will open a  window where you can select the video player executable
+4. Once you've done that, the video player executable should appear in the list of applications
+5. Click on the video player item in the list and in **GPU preference** you can choose between **Power Saving (Integrated GPU)** or **High Performance (Dedicated GPU)**
+
+
